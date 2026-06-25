@@ -1,0 +1,273 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --muted: 214 32% 95%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 214 32% 95%;
+    --accent-foreground: 222 47% 11%;
+    --border: 214 32% 91%;
+  }
+
+  .dark {
+    --background: 222 47% 5%;
+    --foreground: 0 0% 98%;
+    --card: 222 47% 7%;
+    --card-foreground: 0 0% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 0 0% 98%;
+    --border: 217 33% 17%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply text-foreground antialiased;
+  }
+}
+
+/* Nordic wave background */
+.dark body,
+body {
+  background: #07070a url('/hero.jpg') center / cover fixed no-repeat;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 18% 20%, rgba(59, 130, 246, 0.20), transparent 32%),
+    radial-gradient(circle at 82% 12%, rgba(14, 165, 233, 0.14), transparent 30%),
+    linear-gradient(135deg, rgba(2, 6, 23, 0.78) 0%, rgba(11, 17, 32, 0.72) 48%, rgba(17, 24, 39, 0.76) 100%),
+    url('/hero.jpg') center / cover no-repeat;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(130, 170, 255, 0.038) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(130, 170, 255, 0.038) 1px, transparent 1px),
+    radial-gradient(circle at 22% 22%, rgba(59, 130, 246, 0.07), transparent 34%),
+    radial-gradient(circle at 82% 68%, rgba(96, 165, 250, 0.045), transparent 30%);
+  background-size:
+    54px 54px,
+    54px 54px,
+    120% 120%,
+    120% 120%;
+  background-position: 0 0, 0 0, center, center;
+  opacity: 0.46;
+  animation: ncGridDrift 20s linear infinite;
+}
+
+@keyframes ncGridDrift {
+  0% { background-position: 0 0, 0 0, center, center; }
+  100% { background-position: 54px 54px, 54px 54px, center, center; }
+}
+
+/* Sheen sweep effect */
+main {
+  position: relative;
+  z-index: 0;
+}
+
+main::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(115deg, transparent 0%, rgba(96, 165, 250, 0.05) 46%, rgba(96, 165, 250, 0.012) 51%, transparent 56%);
+  background-size: 260% 260%;
+  opacity: 0.22;
+  animation: ncGridSheen 12s ease-in-out infinite;
+}
+
+@keyframes ncGridSheen {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/20 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/40;
+}
+
+/* Code blocks */
+pre {
+  @apply rounded-xl bg-[hsl(240,10%,6%)] text-[hsl(0,0%,90%)] p-4 overflow-x-auto text-sm font-mono;
+}
+
+.dark pre {
+  @apply bg-[hsl(240,10%,8%)];
+}
+
+code:not(pre code) {
+  @apply rounded-md bg-muted px-1.5 py-0.5 text-sm font-mono font-medium;
+}
+
+/* Prose */
+.prose {
+  @apply max-w-none;
+}
+
+.prose h1 {
+  @apply text-3xl font-bold tracking-tight mt-8 mb-4 first:mt-0;
+}
+
+.prose h2 {
+  @apply text-2xl font-semibold tracking-tight mt-8 mb-3 pb-2 border-b border-border;
+}
+
+.prose h3 {
+  @apply text-xl font-semibold tracking-tight mt-6 mb-3;
+}
+
+.prose p {
+  @apply leading-7 mb-4;
+}
+
+.prose ul {
+  @apply list-disc pl-6 mb-4 space-y-2;
+}
+
+.prose ol {
+  @apply list-decimal pl-6 mb-4 space-y-2;
+}
+
+.prose li {
+  @apply leading-7;
+}
+
+.prose a {
+  @apply text-primary underline underline-offset-4 hover:opacity-80 transition-opacity;
+}
+
+.prose blockquote {
+  @apply border-l-4 border-primary/50 pl-4 italic text-muted-foreground my-4;
+}
+
+.prose table {
+  @apply w-full border-collapse my-4;
+}
+
+.prose th {
+  @apply text-left font-semibold p-3 border-b-2 border-border;
+}
+
+.prose td {
+  @apply p-3 border-b border-border;
+}
+
+.prose hr {
+  @apply my-8 border-border;
+}
+
+/* Glass card — nordiccheats style */
+.glass-card {
+  background: rgba(15, 17, 21, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.24),
+    inset 0 0 0 1px rgba(96, 165, 250, 0.12);
+  transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+}
+
+.glass-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(96, 165, 250, 0.25);
+  box-shadow:
+    0 18px 36px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 1px rgba(96, 165, 250, 0.25),
+    0 0 20px rgba(96, 165, 250, 0.08);
+}
+
+.glass-card-sm {
+  background: rgba(15, 17, 21, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.2),
+    inset 0 0 0 1px rgba(96, 165, 250, 0.10);
+  transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+}
+
+.glass-card-sm:hover {
+  transform: translateY(-3px);
+  border-color: rgba(96, 165, 250, 0.2);
+  box-shadow:
+    0 14px 28px rgba(0, 0, 0, 0.3),
+    inset 0 0 0 1px rgba(96, 165, 250, 0.2),
+    0 0 16px rgba(96, 165, 250, 0.06);
+}
+
+.glass-card-static {
+  background: rgba(15, 17, 21, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.24),
+    inset 0 0 0 1px rgba(96, 165, 250, 0.12);
+}
+
+/* Animations */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out forwards;
+}
+
+@keyframes glow {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.animate-glow {
+  animation: glow 3s ease-in-out infinite;
+}
