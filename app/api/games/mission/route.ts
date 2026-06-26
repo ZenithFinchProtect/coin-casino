@@ -2,23 +2,31 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/session";
 import { adjustBalance, CoinApiError } from "@/lib/coins";
 import {
-  MISSION_LANES,
-  MISSION_MULTIPLIER,
-  MISSION_WIN_CHANCE,
+  MISSION_MAX_LANES,
+  MISSION_SURVIVE,
   isValidBet,
-  rollWin,
-  secureInt,
+  missionMultiplier,
+  missionWinChance,
+  payoutCoins,
+  secureUnitInterval,
 } from "@/lib/games";
 
 export const runtime = "edge";
 
+/**
+ * Stake-style "Chicken" crossing. The player commits to crossing `lanes` lanes;
+ * each lane has a fixed survival chance (MISSION_SURVIVE), so the cash-out
+ * multiplier grows the further they go while the expected return stays at
+ * HOUSE_RTP. The win/lose outcome and (on a loss) which lane the chicken is hit
+ * on are decided server-side; the client animates the crossing lane by lane.
+ */
 export async function POST(req: NextRequest) {
   const user = await getSessionUser();
   if (!user) {
     return NextResponse.json({ error: "not_authenticated" }, { status: 401 });
   }
 
-  let body: { bet?: unknown };
+  let body: { bet?: unknown; lanes?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -26,11 +34,22 @@ export async function POST(req: NextRequest) {
   }
 
   const bet = body.bet;
+  const lanes = body.lanes;
   if (!isValidBet(bet)) {
     return NextResponse.json({ error: "invalid_bet" }, { status: 400 });
   }
+  if (
+    typeof lanes !== "number" ||
+    !Number.isInteger(lanes) ||
+    lanes < 1 ||
+    lanes > MISSION_MAX_LANES
+  ) {
+    return NextResponse.json({ error: "invalid_lanes" }, { status: 400 });
+  }
 
-  // Debit the stake first so a player can never bet coins they don't have.
+  const winChance = missionWinChance(lanes);
+  const multiplier = missionMultiplier(lanes);
+
   let balance: number;
   try {
     balance = await adjustBalance(user.id, -bet);
@@ -44,13 +63,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "coin_api_error" }, { status: 502 });
   }
 
-  const win = rollWin(MISSION_WIN_CHANCE);
-  // On a loss, the chicken is hit somewhere along the way (lane 1..MISSION_LANES).
-  const bustLane = win ? null : 1 + secureInt(MISSION_LANES);
+  // Walk lane by lane: each lane is survived with probability MISSION_SURVIVE.
+  // This yields the correct overall win chance (MISSION_SURVIVE^lanes) and a
+  // realistic bust lane on a loss.
+  let bustLane: number | null = null;
+  for (let lane = 1; lane <= lanes; lane++) {
+    if (secureUnitInterval() >= MISSION_SURVIVE) {
+      bustLane = lane;
+      break;
+    }
+  }
+  const win = bustLane === null;
 
   let payout = 0;
   if (win) {
-    payout = bet * MISSION_MULTIPLIER;
+    payout = payoutCoins(bet, multiplier);
     try {
       balance = await adjustBalance(user.id, payout);
     } catch {
@@ -60,8 +87,10 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     result: win ? "win" : "lose",
-    lanes: MISSION_LANES,
+    lanes,
     bustLane,
+    winChance,
+    multiplier,
     bet,
     payout,
     profit: win ? payout - bet : -bet,

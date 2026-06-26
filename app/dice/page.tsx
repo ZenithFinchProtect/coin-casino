@@ -1,31 +1,41 @@
 "use client";
 
 import { useState } from "react";
-import { Dices, Loader2 } from "lucide-react";
-import { ParticlesBackground } from "@/components/particles-background";
 import { LoginGate } from "@/components/login-gate";
-import { BetControls } from "@/components/bet-controls";
 import { useUser } from "@/components/user-context";
+import { StakeShell, StakeBetField } from "@/components/stake-shell";
+import {
+  DICE_MAX_TARGET,
+  DICE_MIN_TARGET,
+  DICE_DEFAULT_TARGET,
+  MAX_BET,
+  MIN_BET,
+  diceWinChance,
+  payoutMultiplier,
+  roundMultiplier,
+} from "@/lib/games";
 import { cn } from "@/lib/utils";
-
-type Pick = "high" | "low";
 
 interface DiceResult {
   result: "win" | "lose";
-  pick: Pick;
+  target: number;
   roll: number;
+  multiplier: number;
   profit: number;
   balance: number;
 }
 
 function DiceGame() {
   const { coins, setCoins, refresh } = useUser();
-  const [bet, setBet] = useState(1);
-  const [pick, setPick] = useState<Pick>("high");
+  const [bet, setBet] = useState(MIN_BET);
+  const [target, setTarget] = useState(DICE_DEFAULT_TARGET);
   const [rolling, setRolling] = useState(false);
+  const [display, setDisplay] = useState(50);
   const [result, setResult] = useState<DiceResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const winChance = diceWinChance(target);
+  const multiplier = roundMultiplier(payoutMultiplier(winChance));
   const canPlay = !rolling && coins !== null && coins >= bet;
 
   async function roll() {
@@ -33,11 +43,19 @@ function DiceGame() {
     setError(null);
     setResult(null);
     setRolling(true);
+    const start = performance.now();
+    const tick = () => {
+      if (performance.now() - start < 600) {
+        setDisplay(Math.round(Math.random() * 10000) / 100);
+        requestAnimationFrame(tick);
+      }
+    };
+    requestAnimationFrame(tick);
     try {
       const res = await fetch("/api/games/dice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bet, pick }),
+        body: JSON.stringify({ bet, target }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -50,7 +68,8 @@ function DiceGame() {
         setRolling(false);
         return;
       }
-      await new Promise((r) => setTimeout(r, 1100));
+      await new Promise((r) => setTimeout(r, 650));
+      setDisplay(data.roll);
       setResult(data);
       setCoins(data.balance);
       refresh();
@@ -61,108 +80,120 @@ function DiceGame() {
     }
   }
 
-  const shownRoll = result ? result.roll : null;
+  const pct = (display / 100) * 100;
 
-  return (
-    <div className="relative">
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <ParticlesBackground />
+  const panel = (
+    <>
+      <StakeBetField
+        bet={bet}
+        setBet={setBet}
+        min={MIN_BET}
+        max={MAX_BET}
+        disabled={rolling}
+      />
+
+      <div className="mb-4 grid grid-cols-2 gap-3">
+        <div>
+          <span className="stake-label">Multiplier</span>
+          <div className="stake-input">{multiplier.toFixed(2)}×</div>
+        </div>
+        <div>
+          <span className="stake-label">Win Chance</span>
+          <div className="stake-input">{(winChance * 100).toFixed(2)}%</div>
+        </div>
       </div>
 
-      <div className="relative mx-auto max-w-lg px-4 sm:px-6 py-12">
-        <h1 className="text-3xl font-bold tracking-tight text-center mb-1">
-          Dice
-        </h1>
-        <p className="text-center text-sm text-muted-foreground mb-8">
-          Low is 1–3, high is 4–6. Win pays 2× your bet.
-        </p>
+      <button
+        type="button"
+        className="stake-btn"
+        disabled={!canPlay}
+        onClick={roll}
+      >
+        {rolling ? "Rolling…" : "Bet"}
+      </button>
+      {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+    </>
+  );
 
-        <div className="glass-card-static p-8 flex flex-col items-center">
+  const board = (
+    <div className="flex flex-1 flex-col items-center justify-center gap-8">
+      <div
+        className={cn(
+          "text-6xl font-bold tabular-nums transition-colors",
+          result
+            ? result.result === "win"
+              ? "text-[#00e701]"
+              : "text-red-400"
+            : "text-white"
+        )}
+      >
+        {display.toFixed(2)}
+      </div>
+
+      {/* Slider track with roll marker */}
+      <div className="w-full max-w-xl">
+        <div className="relative h-3 rounded-full bg-red-500/70">
           <div
+            className="absolute inset-y-0 left-0 rounded-full bg-[#00e701]"
+            style={{ width: `${100 - target}%`, left: `${target}%` }}
+          />
+          {/* roll marker */}
+          <div
+            className="absolute -top-1.5 h-6 w-1.5 rounded bg-white shadow"
+            style={{ left: `calc(${pct}% - 3px)` }}
+          />
+        </div>
+        <div className="mt-2 flex justify-between text-xs text-[#5b7283]">
+          <span>0</span>
+          <span>25</span>
+          <span>50</span>
+          <span>75</span>
+          <span>100</span>
+        </div>
+
+        <div className="mt-6">
+          <label className="stake-label flex justify-between">
+            <span>Roll Over</span>
+            <span className="text-white">{target}</span>
+          </label>
+          <input
+            type="range"
+            min={DICE_MIN_TARGET}
+            max={DICE_MAX_TARGET}
+            value={target}
+            disabled={rolling}
+            onChange={(e) => setTarget(Number(e.target.value))}
+            className="w-full accent-[#00e701]"
+          />
+        </div>
+      </div>
+
+      <div className="h-6 text-center">
+        {result && (
+          <p
             className={cn(
-              "flex h-32 w-32 items-center justify-center rounded-2xl border-4 text-5xl font-bold transition-transform duration-300",
-              rolling && "animate-spin",
-              "border-primary/60 bg-primary/10 text-primary"
+              "text-base font-semibold",
+              result.result === "win" ? "text-[#00e701]" : "text-red-400"
             )}
           >
-            {rolling ? (
-              <Dices className="h-12 w-12" />
-            ) : shownRoll !== null ? (
-              shownRoll
-            ) : (
-              <Dices className="h-12 w-12 opacity-60" />
-            )}
-          </div>
-
-          <div className="h-8 mt-5 text-center">
-            {result && (
-              <p
-                className={cn(
-                  "text-lg font-semibold animate-fade-in",
-                  result.result === "win" ? "text-green-400" : "text-red-400"
-                )}
-              >
-                {result.result === "win"
-                  ? `Rolled ${result.roll}. You won +${result.profit} coins!`
-                  : `Rolled ${result.roll}. You lost ${Math.abs(
-                      result.profit
-                    )} coins.`}
-              </p>
-            )}
-            {error && <p className="text-sm text-red-400">{error}</p>}
-          </div>
-        </div>
-
-        <div className="glass-card-static p-6 mt-6 space-y-5">
-          <div>
-            <span className="text-sm font-medium text-muted-foreground">
-              Your call
-            </span>
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              {(["low", "high"] as Pick[]).map((side) => (
-                <button
-                  key={side}
-                  type="button"
-                  disabled={rolling}
-                  onClick={() => setPick(side)}
-                  className={cn(
-                    "h-11 rounded-lg border text-sm font-semibold capitalize transition-colors disabled:opacity-50",
-                    side === pick
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-card/60 hover:bg-accent"
-                  )}
-                >
-                  {side === "low" ? "Low (1–3)" : "High (4–6)"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <BetControls bet={bet} setBet={setBet} disabled={rolling} />
-
-          <button
-            type="button"
-            onClick={roll}
-            disabled={!canPlay}
-            className="flex w-full items-center justify-center gap-2 h-12 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
-          >
-            {rolling ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Rolling…
-              </>
-            ) : (
-              <>Roll for {bet} {bet === 1 ? "coin" : "coins"}</>
-            )}
-          </button>
-
-          {coins !== null && coins < bet && (
-            <p className="text-center text-xs text-red-400">
-              Not enough coins. Earn more with the Discord bot.
-            </p>
-          )}
-        </div>
+            {result.result === "win"
+              ? `Rolled ${result.roll.toFixed(2)} — won +${result.profit} coins!`
+              : `Rolled ${result.roll.toFixed(2)} — lost ${Math.abs(
+                  result.profit
+                )} coins.`}
+          </p>
+        )}
       </div>
     </div>
+  );
+
+  return (
+    <StakeShell
+      title="Dice"
+      subtitle="Slide your target and roll over it. Higher target, bigger payout."
+      panel={panel}
+      board={board}
+    />
   );
 }
 

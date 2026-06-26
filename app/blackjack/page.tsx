@@ -1,68 +1,83 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Spade } from "lucide-react";
-import { ParticlesBackground } from "@/components/particles-background";
 import { LoginGate } from "@/components/login-gate";
-import { BetControls } from "@/components/bet-controls";
 import { useUser } from "@/components/user-context";
+import { StakeShell, StakeBetField } from "@/components/stake-shell";
+import { MAX_BET, MIN_BET } from "@/lib/games";
 import { cn } from "@/lib/utils";
 
-interface BlackjackResult {
-  result: "win" | "lose";
+const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+const SUITS = ["♠", "♥", "♦", "♣"];
+
+interface Hand {
   player: number[];
-  dealer: number[];
   playerTotal: number;
+  dealer: number[];
   dealerTotal: number;
-  profit: number;
-  balance: number;
+  canHit: boolean;
+  canDouble: boolean;
+  canStand: boolean;
+  done: boolean;
+  outcome: string | null;
+  token: string;
+  bet: number;
+  payout: number;
+  profit?: number;
+  balance?: number;
 }
 
-function cardLabel(value: number): string {
-  if (value === 11) return "A";
-  return String(value);
-}
+const OUTCOME_TEXT: Record<string, string> = {
+  player_blackjack: "Blackjack! Pays 3:2",
+  player_win: "You win!",
+  dealer_bust: "Dealer busts — you win!",
+  player_bust: "Bust — you lose.",
+  dealer_win: "Dealer wins.",
+  push: "Push — bet returned.",
+};
 
-function Hand({ label, cards, total }: { label: string; cards: number[]; total: number }) {
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <span className="text-xs text-muted-foreground">
-        {label} · {total}
-        {total > 21 ? " (bust)" : ""}
-      </span>
-      <div className="flex gap-1.5">
-        {cards.map((c, i) => (
-          <div
-            key={i}
-            className="flex h-16 w-12 items-center justify-center rounded-lg border-2 border-primary/60 bg-primary/10 text-lg font-bold text-primary"
-          >
-            {cardLabel(c)}
-          </div>
-        ))}
+function Card({ code, hidden }: { code?: number; hidden?: boolean }) {
+  if (hidden || code === undefined) {
+    return (
+      <div className="flex h-24 w-16 items-center justify-center rounded-lg border-2 border-[#2f4553] bg-[#1a2c38] text-2xl text-[#557086]">
+        ?
       </div>
+    );
+  }
+  const rank = RANKS[code % 13];
+  const suit = SUITS[Math.floor(code / 13) % 4];
+  const red = suit === "♥" || suit === "♦";
+  return (
+    <div
+      className={cn(
+        "flex h-24 w-16 flex-col items-center justify-center rounded-lg border-2 border-[#d3dce6] bg-white font-bold",
+        red ? "text-red-600" : "text-slate-900"
+      )}
+    >
+      <span className="text-xl">{rank}</span>
+      <span className="text-2xl">{suit}</span>
     </div>
   );
 }
 
 function BlackjackGame() {
   const { coins, setCoins, refresh } = useUser();
-  const [bet, setBet] = useState(1);
-  const [playing, setPlaying] = useState(false);
-  const [result, setResult] = useState<BlackjackResult | null>(null);
+  const [bet, setBet] = useState(MIN_BET);
+  const [hand, setHand] = useState<Hand | null>(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canPlay = !playing && coins !== null && coins >= bet;
+  const inHand = hand !== null && !hand.done;
+  const canDeal = !busy && !inHand && coins !== null && coins >= bet;
 
-  async function play() {
-    if (!canPlay) return;
+  async function send(action: string, body: Record<string, unknown>) {
     setError(null);
-    setResult(null);
-    setPlaying(true);
+    setBusy(true);
     try {
       const res = await fetch("/api/games/blackjack", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bet }),
+        body: JSON.stringify({ action, ...body }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -72,91 +87,132 @@ function BlackjackGame() {
         } else {
           setError("Something went wrong. Try again.");
         }
-        setPlaying(false);
-        return;
+        return null;
       }
-      await new Promise((r) => setTimeout(r, 800));
-      setResult(data);
-      setCoins(data.balance);
+      setHand(data);
+      if (typeof data.balance === "number") setCoins(data.balance);
       refresh();
+      return data as Hand;
     } catch {
       setError("Network error. Try again.");
+      return null;
     } finally {
-      setPlaying(false);
+      setBusy(false);
     }
   }
 
-  return (
-    <div className="relative">
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <ParticlesBackground />
-      </div>
+  const deal = () => send("deal", { bet });
+  const hit = () => hand && send("hit", { state: hand.token });
+  const stand = () => hand && send("stand", { state: hand.token });
+  const double = () => hand && send("double", { state: hand.token });
 
-      <div className="relative mx-auto max-w-lg px-4 sm:px-6 py-12">
-        <h1 className="text-3xl font-bold tracking-tight text-center mb-1">
-          Blackjack
-        </h1>
-        <p className="text-center text-sm text-muted-foreground mb-8">
-          Beat the dealer without busting. Win pays 2× your bet.
-        </p>
+  const won = hand?.done && (hand.payout ?? 0) > 0;
+  const lost = hand?.done && (hand.payout ?? 0) === 0 && hand.outcome !== "push";
 
-        <div className="glass-card-static p-8 flex flex-col items-center gap-6">
-          {result ? (
-            <>
-              <Hand label="Dealer" cards={result.dealer} total={result.dealerTotal} />
-              <Hand label="You" cards={result.player} total={result.playerTotal} />
-            </>
-          ) : (
-            <div className="flex h-32 items-center justify-center text-primary/60">
-              <Spade className="h-12 w-12" />
-            </div>
-          )}
-
-          <div className="h-8 text-center">
-            {result && (
-              <p
-                className={cn(
-                  "text-lg font-semibold animate-fade-in",
-                  result.result === "win" ? "text-green-400" : "text-red-400"
-                )}
-              >
-                {result.result === "win"
-                  ? `You won +${result.profit} coins!`
-                  : `You lost ${Math.abs(result.profit)} coins.`}
-              </p>
-            )}
-            {error && <p className="text-sm text-red-400">{error}</p>}
-          </div>
-        </div>
-
-        <div className="glass-card-static p-6 mt-6 space-y-5">
-          <BetControls bet={bet} setBet={setBet} disabled={playing} />
-
+  const panel = (
+    <>
+      <StakeBetField
+        bet={bet}
+        setBet={setBet}
+        min={MIN_BET}
+        max={MAX_BET}
+        disabled={busy || inHand}
+      />
+      {!inHand ? (
+        <button type="button" className="stake-btn" disabled={!canDeal} onClick={deal}>
+          {busy ? "Dealing…" : "Deal"}
+        </button>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
-            onClick={play}
-            disabled={!canPlay}
-            className="flex w-full items-center justify-center gap-2 h-12 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+            className="stake-btn"
+            disabled={busy || !hand?.canHit}
+            onClick={hit}
           >
-            {playing ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Dealing…
-              </>
-            ) : (
-              <>
-                Deal for {bet} {bet === 1 ? "coin" : "coins"}
-              </>
-            )}
+            Hit
           </button>
+          <button
+            type="button"
+            className="stake-btn stake-btn-secondary"
+            disabled={busy || !hand?.canStand}
+            onClick={stand}
+          >
+            Stand
+          </button>
+          <button
+            type="button"
+            className="stake-btn stake-btn-secondary col-span-2"
+            disabled={busy || !hand?.canDouble || coins === null || coins < bet}
+            onClick={double}
+          >
+            Double
+          </button>
+        </div>
+      )}
+      <p className="mt-3 text-xs text-[#5b7283]">
+        Dealer stands on 17 (hits soft 17). Blackjack pays 3:2.
+      </p>
+      {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+    </>
+  );
 
-          {coins !== null && coins < bet && (
-            <p className="text-center text-xs text-red-400">
-              Not enough coins. Earn more with the Discord bot.
-            </p>
+  const board = (
+    <div className="flex flex-1 flex-col justify-between gap-6">
+      <div>
+        <p className="mb-2 text-xs font-semibold text-[#b1bad3]">
+          Dealer {hand && (hand.done ? `· ${hand.dealerTotal}` : "")}
+        </p>
+        <div className="flex gap-2">
+          {hand ? (
+            hand.dealer.map((c, i) => <Card key={i} code={c} />)
+          ) : (
+            <Card hidden />
+          )}
+          {hand && !hand.done && <Card hidden />}
+        </div>
+      </div>
+
+      <div>
+        <p className="mb-2 text-xs font-semibold text-[#b1bad3]">
+          You {hand ? `· ${hand.playerTotal}` : ""}
+        </p>
+        <div className="flex gap-2">
+          {hand ? (
+            hand.player.map((c, i) => <Card key={i} code={c} />)
+          ) : (
+            <>
+              <Card hidden />
+              <Card hidden />
+            </>
           )}
         </div>
       </div>
+
+      <div className="h-6 text-center">
+        {hand?.done && hand.outcome && (
+          <p
+            className={cn(
+              "text-base font-semibold",
+              won ? "text-[#00e701]" : lost ? "text-red-400" : "text-[#b1bad3]"
+            )}
+          >
+            {OUTCOME_TEXT[hand.outcome] ?? hand.outcome}
+            {typeof hand.profit === "number" &&
+              ` (${hand.profit >= 0 ? "+" : ""}${hand.profit} coins)`}
+          </p>
+        )}
+      </div>
     </div>
+  );
+
+  return (
+    <StakeShell
+      title="Blackjack"
+      subtitle="Real blackjack — hit, stand, or double. Dealer draws to 17."
+      panel={panel}
+      board={board}
+    />
   );
 }
 

@@ -1,4 +1,4 @@
-import { Coins, Bomb, Dices, ArrowUpDown, Spade, Bird, Rocket } from "lucide-react";
+import { Coins, Bomb, Dices, ArrowUpDown, Spade, Bird, Rocket, CircleDot } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /**
@@ -64,6 +64,13 @@ export const GAMES: GameDef[] = [
     name: "Crash",
     description: "Cash out at your target multiplier before the rocket crashes.",
     icon: Rocket,
+    stage: "test",
+  },
+  {
+    href: "/plinko",
+    name: "Plinko",
+    description: "Drop the ball through the pegs and chase the big edge multipliers.",
+    icon: CircleDot,
     stage: "test",
   },
 ];
