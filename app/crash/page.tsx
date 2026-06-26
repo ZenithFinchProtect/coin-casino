@@ -1,17 +1,22 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Loader2, Rocket } from "lucide-react";
-import { ParticlesBackground } from "@/components/particles-background";
+import { useRef, useState } from "react";
 import { LoginGate } from "@/components/login-gate";
-import { BetControls } from "@/components/bet-controls";
 import { useUser } from "@/components/user-context";
-import { CRASH_TARGETS } from "@/lib/games";
+import { StakeShell, StakeBetField } from "@/components/stake-shell";
+import {
+  CRASH_DEFAULT_TARGET,
+  CRASH_MAX_TARGET,
+  CRASH_MIN_TARGET,
+  MAX_BET,
+  MIN_BET,
+  crashWinChanceContinuous,
+  payoutMultiplier,
+  roundMultiplier,
+} from "@/lib/games";
 import { cn } from "@/lib/utils";
 
-type Phase = "idle" | "running" | "done";
-
-interface CrashRound {
+interface CrashResult {
   result: "win" | "lose";
   target: number;
   crashPoint: number;
@@ -21,49 +26,44 @@ interface CrashRound {
 
 function CrashGame() {
   const { coins, setCoins, refresh } = useUser();
-  const [bet, setBet] = useState(1);
-  const [target, setTarget] = useState<number>(CRASH_TARGETS[0]);
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [mult, setMult] = useState(1);
-  const [round, setRound] = useState<CrashRound | null>(null);
+  const [bet, setBet] = useState(MIN_BET);
+  const [target, setTarget] = useState(CRASH_DEFAULT_TARGET);
+  const [running, setRunning] = useState(false);
+  const [multi, setMulti] = useState(1);
+  const [result, setResult] = useState<CrashResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const rafRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    return () => {
-      if (tickRef.current) clearInterval(tickRef.current);
-    };
-  }, []);
+  const winChance = crashWinChanceContinuous(target);
+  const potential = roundMultiplier(payoutMultiplier(winChance));
+  const canPlay = !running && coins !== null && coins >= bet;
 
-  const canPlay = phase !== "running" && coins !== null && coins >= bet;
-
-  function runRocket(data: CrashRound) {
-    // The rocket climbs in real time and stops at the cash-out target on a win
-    // or at the crash point on a loss — the server already decided which.
-    const stopAt = data.result === "win" ? data.target : data.crashPoint;
-    let current = 1;
-    setMult(1);
-    tickRef.current = setInterval(() => {
-      current = Math.round((current + 0.03) * 100) / 100;
-      if (current >= stopAt) {
-        current = stopAt;
-        setMult(current);
-        if (tickRef.current) clearInterval(tickRef.current);
-        setPhase("done");
+  function animateTo(end: number, data: CrashResult) {
+    const start = performance.now();
+    const duration = 400 + Math.min(end, 10) * 250;
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const value = 1 + (end - 1) * t;
+      setMulti(value);
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(step);
+      } else {
+        setMulti(end);
+        setResult(data);
         setCoins(data.balance);
+        setRunning(false);
         refresh();
-        return;
       }
-      setMult(current);
-    }, 40);
+    };
+    rafRef.current = requestAnimationFrame(step);
   }
 
   async function play() {
     if (!canPlay) return;
     setError(null);
-    setRound(null);
-    setMult(1);
-    setPhase("running");
+    setResult(null);
+    setRunning(true);
+    setMulti(1);
     try {
       const res = await fetch("/api/games/crash", {
         method: "POST",
@@ -72,138 +72,100 @@ function CrashGame() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setPhase("idle");
         if (res.status === 409) {
           setError("Not enough coins for that bet.");
           if (typeof data.coins === "number") setCoins(data.coins);
         } else {
           setError("Something went wrong. Try again.");
         }
+        setRunning(false);
         return;
       }
-      setRound(data);
-      if (coins !== null) setCoins(coins - bet); // optimistic debit
-      runRocket(data);
+      const end = data.result === "win" ? data.target : data.crashPoint;
+      animateTo(end, data);
     } catch {
-      setPhase("idle");
       setError("Network error. Try again.");
+      setRunning(false);
     }
   }
 
-  const done = phase === "done" && round;
-  const crashed = done && round.result === "lose";
-  const cashedOut = done && round.result === "win";
+  const busted = result?.result === "lose";
+  const won = result?.result === "win";
 
-  return (
-    <div className="relative">
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <ParticlesBackground />
+  const panel = (
+    <>
+      <StakeBetField
+        bet={bet}
+        setBet={setBet}
+        min={MIN_BET}
+        max={MAX_BET}
+        disabled={running}
+      />
+
+      <div className="mb-4">
+        <span className="stake-label">Auto Cashout</span>
+        <input
+          type="number"
+          className="stake-input"
+          step={0.01}
+          min={CRASH_MIN_TARGET}
+          max={CRASH_MAX_TARGET}
+          value={target}
+          disabled={running}
+          onChange={(e) =>
+            setTarget(
+              Math.max(
+                CRASH_MIN_TARGET,
+                Math.min(CRASH_MAX_TARGET, Number(e.target.value) || CRASH_MIN_TARGET)
+              )
+            )
+          }
+        />
+        <p className="mt-1.5 text-xs text-[#5b7283]">
+          Pays {potential.toFixed(2)}× • win chance {(winChance * 100).toFixed(1)}%
+        </p>
       </div>
 
-      <div className="relative mx-auto max-w-lg px-4 sm:px-6 py-12">
-        <h1 className="text-3xl font-bold tracking-tight text-center mb-1">
-          Crash
-        </h1>
-        <p className="text-center text-sm text-muted-foreground mb-8">
-          Auto cash-out at your target before the rocket crashes.
-        </p>
+      <button type="button" className="stake-btn" disabled={!canPlay} onClick={play}>
+        {running ? "Flying…" : "Bet"}
+      </button>
+      {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+    </>
+  );
 
-        <div className="glass-card-static p-8 flex flex-col items-center">
-          <div
-            className={cn(
-              "flex h-40 w-40 flex-col items-center justify-center rounded-2xl border-4 transition-colors duration-200",
-              phase === "running" && "animate-pulse",
-              cashedOut
-                ? "border-green-500/60 bg-green-500/10 text-green-400"
-                : crashed
-                ? "border-red-500/60 bg-red-500/10 text-red-400"
-                : "border-primary/60 bg-primary/10 text-primary"
-            )}
-          >
-            <Rocket
-              className={cn(
-                "h-8 w-8 mb-1",
-                phase === "running" && "animate-bounce"
-              )}
-            />
-            <span className="text-3xl font-bold tabular-nums">
-              {mult.toFixed(2)}×
-            </span>
-          </div>
-
-          <div className="h-8 mt-5 text-center">
-            {cashedOut && (
-              <p className="text-lg font-semibold text-green-400 animate-fade-in">
-                Cashed out at {round.target}×! You won +{round.profit} coins!
-              </p>
-            )}
-            {crashed && (
-              <p className="text-lg font-semibold text-red-400 animate-fade-in">
-                Crashed at {round.crashPoint}×. You lost{" "}
-                {Math.abs(round.profit)} coins.
-              </p>
-            )}
-            {phase === "running" && (
-              <p className="text-sm text-muted-foreground">
-                Climbing to {target}×…
-              </p>
-            )}
-            {error && <p className="text-sm text-red-400">{error}</p>}
-          </div>
-        </div>
-
-        <div className="glass-card-static p-6 mt-6 space-y-5">
-          <div>
-            <span className="text-sm font-medium text-muted-foreground">
-              Cash-out target
-            </span>
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              {CRASH_TARGETS.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  disabled={phase === "running"}
-                  onClick={() => setTarget(t)}
-                  className={cn(
-                    "h-11 rounded-lg border text-sm font-semibold transition-colors disabled:opacity-50",
-                    t === target
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-card/60 hover:bg-accent"
-                  )}
-                >
-                  {t}×
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <BetControls bet={bet} setBet={setBet} disabled={phase === "running"} />
-
-          <button
-            type="button"
-            onClick={play}
-            disabled={!canPlay}
-            className="flex w-full items-center justify-center gap-2 h-12 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
-          >
-            {phase === "running" ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Launching…
-              </>
-            ) : (
-              <>
-                Launch for {bet} {bet === 1 ? "coin" : "coins"}
-              </>
-            )}
-          </button>
-
-          {coins !== null && coins < bet && phase !== "running" && (
-            <p className="text-center text-xs text-red-400">
-              Not enough coins. Earn more with the Discord bot.
-            </p>
-          )}
-        </div>
+  const board = (
+    <div className="flex flex-1 flex-col items-center justify-center">
+      <div
+        className={cn(
+          "text-7xl font-bold tabular-nums transition-colors",
+          busted ? "text-red-500" : won ? "text-[#00e701]" : "text-white"
+        )}
+      >
+        {multi.toFixed(2)}×
+      </div>
+      <div className="mt-6 h-6 text-center">
+        {won && (
+          <p className="text-base font-semibold text-[#00e701]">
+            Cashed out at {result.target.toFixed(2)}× — won +{result.profit} coins!
+          </p>
+        )}
+        {busted && (
+          <p className="text-base font-semibold text-red-400">
+            Crashed at {result.crashPoint.toFixed(2)}× — lost{" "}
+            {Math.abs(result.profit)} coins.
+          </p>
+        )}
       </div>
     </div>
+  );
+
+  return (
+    <StakeShell
+      title="Crash"
+      subtitle="Set your auto-cashout and ride the rocket before it busts."
+      panel={panel}
+      board={board}
+    />
   );
 }
 

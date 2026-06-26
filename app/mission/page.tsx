@@ -1,17 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { Bird, Loader2, Car } from "lucide-react";
-import { ParticlesBackground } from "@/components/particles-background";
 import { LoginGate } from "@/components/login-gate";
-import { BetControls } from "@/components/bet-controls";
 import { useUser } from "@/components/user-context";
-import { MISSION_LANES, MISSION_MULTIPLIER } from "@/lib/games";
+import { StakeShell, StakeBetField } from "@/components/stake-shell";
+import {
+  MAX_BET,
+  MIN_BET,
+  MISSION_DEFAULT_LANES,
+  MISSION_MAX_LANES,
+  missionMultiplier,
+  missionWinChance,
+} from "@/lib/games";
 import { cn } from "@/lib/utils";
 
-type Phase = "idle" | "playing" | "done";
-
-interface MissionRound {
+interface MissionResult {
   result: "win" | "lose";
   lanes: number;
   bustLane: number | null;
@@ -21,31 +24,46 @@ interface MissionRound {
 
 function MissionGame() {
   const { coins, setCoins, refresh } = useUser();
-  const [bet, setBet] = useState(1);
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [starting, setStarting] = useState(false);
-  const [round, setRound] = useState<MissionRound | null>(null);
-  const [crossed, setCrossed] = useState(0);
-  const [bustedLane, setBustedLane] = useState<number | null>(null);
-  const [outcome, setOutcome] = useState<"win" | "lose" | null>(null);
+  const [bet, setBet] = useState(MIN_BET);
+  const [lanes, setLanes] = useState(MISSION_DEFAULT_LANES);
+  const [running, setRunning] = useState(false);
+  const [pos, setPos] = useState(0); // current lane reached (0 = start)
+  const [result, setResult] = useState<MissionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const lanes = round?.lanes ?? MISSION_LANES;
-  const canStart =
-    phase !== "playing" && coins !== null && coins >= bet && !starting;
+  const multiplier = missionMultiplier(lanes);
+  const winChance = missionWinChance(lanes);
+  const canPlay = !running && coins !== null && coins >= bet;
 
-  async function startRound() {
-    if (!canStart) return;
+  function walk(target: number, bustLane: number | null, data: MissionResult) {
+    let lane = 0;
+    const stopAt = bustLane ?? target;
+    const id = setInterval(() => {
+      lane += 1;
+      setPos(lane);
+      if (lane >= stopAt) {
+        clearInterval(id);
+        setTimeout(() => {
+          setResult(data);
+          setCoins(data.balance);
+          setRunning(false);
+          refresh();
+        }, 300);
+      }
+    }, 380);
+  }
+
+  async function play() {
+    if (!canPlay) return;
     setError(null);
-    setOutcome(null);
-    setCrossed(0);
-    setBustedLane(null);
-    setStarting(true);
+    setResult(null);
+    setPos(0);
+    setRunning(true);
     try {
       const res = await fetch("/api/games/mission", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bet }),
+        body: JSON.stringify({ bet, lanes }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -55,169 +73,116 @@ function MissionGame() {
         } else {
           setError("Something went wrong. Try again.");
         }
-        setStarting(false);
+        setRunning(false);
         return;
       }
-      setRound(data);
-      setPhase("playing");
-      if (coins !== null) setCoins(coins - bet); // optimistic debit
+      walk(data.lanes, data.bustLane, data);
     } catch {
       setError("Network error. Try again.");
-    } finally {
-      setStarting(false);
+      setRunning(false);
     }
   }
 
-  function finalize(r: MissionRound, won: "win" | "lose") {
-    setPhase("done");
-    setOutcome(won);
-    setCoins(r.balance);
-    refresh();
-  }
-
-  function advance() {
-    if (phase !== "playing" || !round) return;
-    const step = crossed + 1; // the lane we're stepping into (1-based)
-
-    if (round.result === "lose" && step === round.bustLane) {
-      setBustedLane(step);
-      finalize(round, "lose");
-      return;
-    }
-
-    setCrossed(step);
-    if (step >= round.lanes) {
-      finalize(round, "win");
-    }
-  }
-
-  const advanceLabel =
-    phase === "playing"
-      ? crossed + 1 >= lanes
-        ? "Cross the final lane"
-        : "Advance to next lane"
-      : null;
-
-  return (
-    <div className="relative">
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <ParticlesBackground />
+  const panel = (
+    <>
+      <StakeBetField
+        bet={bet}
+        setBet={setBet}
+        min={MIN_BET}
+        max={MAX_BET}
+        disabled={running}
+      />
+      <div className="mb-4">
+        <label className="stake-label flex justify-between">
+          <span>Lanes to cross</span>
+          <span className="text-white">{lanes}</span>
+        </label>
+        <input
+          type="range"
+          min={1}
+          max={MISSION_MAX_LANES}
+          value={lanes}
+          disabled={running}
+          onChange={(e) => setLanes(Number(e.target.value))}
+          className="w-full accent-[#00e701]"
+        />
       </div>
+      <div className="mb-4 grid grid-cols-2 gap-3">
+        <div>
+          <span className="stake-label">Cashout</span>
+          <div className="stake-input">{multiplier.toFixed(2)}×</div>
+        </div>
+        <div>
+          <span className="stake-label">Win Chance</span>
+          <div className="stake-input">{(winChance * 100).toFixed(1)}%</div>
+        </div>
+      </div>
+      <button type="button" className="stake-btn" disabled={!canPlay} onClick={play}>
+        {running ? "Crossing…" : "Bet"}
+      </button>
+      {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+    </>
+  );
 
-      <div className="relative mx-auto max-w-lg px-4 sm:px-6 py-12">
-        <h1 className="text-3xl font-bold tracking-tight text-center mb-1">
-          Mission Uncrossable
-        </h1>
-        <p className="text-center text-sm text-muted-foreground mb-8">
-          Cross all {lanes} lanes of traffic. Complete the run to triple your bet.
-        </p>
-
-        <div className="glass-card-static p-6">
-          {phase !== "idle" && (
-            <div className="flex items-center justify-between mb-4 text-sm">
-              <span className="text-muted-foreground">
-                Lanes crossed:{" "}
-                <span className="font-semibold text-foreground">
-                  {crossed}/{lanes}
-                </span>
+  const board = (
+    <div className="flex flex-1 flex-col justify-center gap-6">
+      <div className="flex gap-1.5 overflow-x-auto pb-2">
+        {Array.from({ length: MISSION_MAX_LANES }, (_, i) => i + 1).map((lane) => {
+          const target = lane <= lanes;
+          const reached = pos >= lane;
+          const isBust =
+            result?.result === "lose" && result.bustLane === lane;
+          const here = running && pos === lane;
+          return (
+            <div
+              key={lane}
+              className={cn(
+                "flex h-44 min-w-[52px] flex-1 flex-col items-center justify-center rounded-lg border text-2xl transition-colors",
+                isBust
+                  ? "border-red-500 bg-red-500/15"
+                  : reached && target
+                    ? "border-[#00e701] bg-[#00e701]/10"
+                    : target
+                      ? "border-[#2f4553] bg-[#0f212e]"
+                      : "border-transparent bg-[#0b1922]/60 opacity-50"
+              )}
+            >
+              <span className={cn(here && "animate-bounce")}>
+                {isBust ? "💥" : here ? "🐤" : reached && target ? "🐤" : ""}
               </span>
-              <span className="text-muted-foreground">
-                {MISSION_MULTIPLIER}× on a full run
+              <span className="mt-2 text-[10px] font-semibold text-[#5b7283]">
+                {target ? `L${lane}` : ""}
               </span>
             </div>
-          )}
-
-          <div className="flex items-stretch gap-1.5">
-            {Array.from({ length: lanes }).map((_, i) => {
-              const laneNo = i + 1;
-              const busted = bustedLane === laneNo;
-              const isCrossed = laneNo <= crossed;
-              const isNext = phase === "playing" && laneNo === crossed + 1;
-              return (
-                <div
-                  key={i}
-                  className={cn(
-                    "flex h-28 flex-1 flex-col items-center justify-center rounded-lg border text-xs transition-all",
-                    busted
-                      ? "border-red-500/60 bg-red-500/10 text-red-400"
-                      : isCrossed
-                      ? "border-green-500/60 bg-green-500/10 text-green-400"
-                      : isNext
-                      ? "border-primary/60 bg-primary/10 text-primary animate-pulse"
-                      : "border-border bg-card/60 text-muted-foreground"
-                  )}
-                >
-                  {busted ? (
-                    <Car className="h-6 w-6" />
-                  ) : isCrossed ? (
-                    <Bird className="h-6 w-6" />
-                  ) : (
-                    <span>{laneNo}</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="h-8 mt-5 text-center">
-            {phase === "done" && outcome === "win" && round && (
-              <p className="text-lg font-semibold text-green-400 animate-fade-in">
-                Made it across! You won +{round.profit} coins!
-              </p>
+          );
+        })}
+      </div>
+      <div className="h-6 text-center">
+        {result && (
+          <p
+            className={cn(
+              "text-base font-semibold",
+              result.result === "win" ? "text-[#00e701]" : "text-red-400"
             )}
-            {phase === "done" && outcome === "lose" && round && (
-              <p className="text-lg font-semibold text-red-400 animate-fade-in">
-                Hit in lane {round.bustLane}. You lost{" "}
-                {Math.abs(round.profit)} coins.
-              </p>
-            )}
-            {phase === "playing" && (
-              <p className="text-sm text-muted-foreground">
-                Tap advance to cross the next lane…
-              </p>
-            )}
-            {error && <p className="text-sm text-red-400">{error}</p>}
-          </div>
-        </div>
-
-        <div className="glass-card-static p-6 mt-6 space-y-5">
-          <BetControls bet={bet} setBet={setBet} disabled={phase === "playing"} />
-
-          {phase === "playing" ? (
-            <button
-              type="button"
-              onClick={advance}
-              className="flex w-full items-center justify-center gap-2 h-12 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25 hover:-translate-y-0.5 transition-all"
-            >
-              {advanceLabel}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={startRound}
-              disabled={!canStart}
-              className="flex w-full items-center justify-center gap-2 h-12 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
-            >
-              {starting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" /> Starting…
-                </>
-              ) : (
-                <>
-                  Run for {bet} {bet === 1 ? "coin" : "coins"}
-                </>
-              )}
-            </button>
-          )}
-
-          {coins !== null && coins < bet && phase !== "playing" && (
-            <p className="text-center text-xs text-red-400">
-              Not enough coins. Earn more with the Discord bot.
-            </p>
-          )}
-        </div>
+          >
+            {result.result === "win"
+              ? `Crossed all ${result.lanes} lanes — won +${result.profit} coins!`
+              : `Hit on lane ${result.bustLane} — lost ${Math.abs(
+                  result.profit
+                )} coins.`}
+          </p>
+        )}
       </div>
     </div>
+  );
+
+  return (
+    <StakeShell
+      title="Mission"
+      subtitle="Pick how many lanes to cross. The further you go, the bigger the payout."
+      panel={panel}
+      board={board}
+    />
   );
 }
 

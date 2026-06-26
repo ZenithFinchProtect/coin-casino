@@ -2,41 +2,69 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/session";
 import { adjustBalance, CoinApiError } from "@/lib/coins";
 import {
-  HILO_MULTIPLIER,
   HILO_RANKS,
-  HILO_WIN_CHANCE,
+  hiloHigherChance,
+  hiloLowerChance,
   isValidBet,
-  rollWin,
+  payoutCoins,
+  payoutMultiplier,
+  roundMultiplier,
   secureInt,
+  secureUnitInterval,
 } from "@/lib/games";
 
 export const runtime = "edge";
 
-type Pick = "higher" | "lower";
-
+/**
+ * Stake-style High/Low with real card odds. A card (1=Ace .. 13=King) is shown;
+ * "higher" wins if the next card is the same or higher, "lower" if it is the
+ * same or lower. The multiplier is HOUSE_RTP / trueChance, so the odds are
+ * authentic with a constant edge — and because multiplier == HOUSE_RTP / p for
+ * the exact p used to roll the result, the expected return is HOUSE_RTP for
+ * every shown card, so the client supplying the shown rank cannot shift the EV.
+ *
+ * With no `pick` in the body this just deals a fresh starting card (no stake).
+ */
 export async function POST(req: NextRequest) {
   const user = await getSessionUser();
   if (!user) {
     return NextResponse.json({ error: "not_authenticated" }, { status: 401 });
   }
 
-  let body: { bet?: unknown; pick?: unknown };
+  let body: { bet?: unknown; pick?: unknown; rank?: unknown };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
 
+  // Deal mode: hand out a fresh shown card with no wager.
+  if (body.pick === undefined || body.pick === null) {
+    return NextResponse.json({ rank: 1 + secureInt(HILO_RANKS) });
+  }
+
   const bet = body.bet;
   const pick = body.pick;
+  const rank = body.rank;
   if (!isValidBet(bet)) {
     return NextResponse.json({ error: "invalid_bet" }, { status: 400 });
   }
   if (pick !== "higher" && pick !== "lower") {
     return NextResponse.json({ error: "invalid_pick" }, { status: 400 });
   }
+  if (
+    typeof rank !== "number" ||
+    !Number.isInteger(rank) ||
+    rank < 1 ||
+    rank > HILO_RANKS
+  ) {
+    return NextResponse.json({ error: "invalid_rank" }, { status: 400 });
+  }
 
-  // Debit the stake first so a player can never bet coins they don't have.
+  const winChance =
+    pick === "higher" ? hiloHigherChance(rank) : hiloLowerChance(rank);
+  const multiplier = roundMultiplier(payoutMultiplier(winChance));
+
   let balance: number;
   try {
     balance = await adjustBalance(user.id, -bet);
@@ -50,19 +78,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "coin_api_error" }, { status: 502 });
   }
 
-  const win = rollWin(HILO_WIN_CHANCE);
-  // Keep the current card away from the edges so both guesses are satisfiable.
-  const current = 2 + secureInt(HILO_RANKS - 2); // 2..12
-  // Next card is higher exactly when the guess is correct on "higher", or wrong
-  // on "lower".
-  const nextHigher = (pick === "higher") === win;
-  const next = nextHigher
-    ? current + 1 + secureInt(HILO_RANKS - current) // current+1..13
-    : 1 + secureInt(current - 1); // 1..current-1
+  const win = secureUnitInterval() < winChance;
+  // Generate a next card consistent with the outcome and the guess.
+  let next: number;
+  if (pick === "higher") {
+    next = win
+      ? rank + secureInt(HILO_RANKS - rank + 1) // rank..13
+      : 1 + secureInt(rank - 1); // 1..rank-1
+  } else {
+    next = win
+      ? 1 + secureInt(rank) // 1..rank
+      : rank + 1 + secureInt(HILO_RANKS - rank); // rank+1..13
+  }
 
   let payout = 0;
   if (win) {
-    payout = bet * HILO_MULTIPLIER;
+    payout = payoutCoins(bet, multiplier);
     try {
       balance = await adjustBalance(user.id, payout);
     } catch {
@@ -73,8 +104,10 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     result: win ? "win" : "lose",
     pick,
-    current,
+    current: rank,
     next,
+    winChance,
+    multiplier,
     bet,
     payout,
     profit: win ? payout - bet : -bet,

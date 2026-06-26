@@ -2,15 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/session";
 import { adjustBalance, CoinApiError } from "@/lib/coins";
 import {
-  CRASH_TARGETS,
-  crashWinChance,
+  CRASH_MAX_TARGET,
+  CRASH_MIN_TARGET,
+  crashWinChanceContinuous,
   isValidBet,
-  rollWin,
+  payoutCoins,
   secureUnitInterval,
 } from "@/lib/games";
 
 export const runtime = "edge";
 
+/**
+ * Stake-style crash with a continuous auto-cashout target. The player sets the
+ * multiplier they want to cash out at and watches the rocket climb live; it
+ * auto-cashes at the target on a win, or busts below it on a loss. Win chance
+ * is HOUSE_RTP / target, so the expected return is HOUSE_RTP at every target.
+ * The crash point is decided server-side; the client only animates up to it.
+ */
 export async function POST(req: NextRequest) {
   const user = await getSessionUser();
   if (!user) {
@@ -31,12 +39,15 @@ export async function POST(req: NextRequest) {
   }
   if (
     typeof target !== "number" ||
-    !(CRASH_TARGETS as readonly number[]).includes(target)
+    !Number.isFinite(target) ||
+    target < CRASH_MIN_TARGET ||
+    target > CRASH_MAX_TARGET
   ) {
     return NextResponse.json({ error: "invalid_target" }, { status: 400 });
   }
+  const cashTarget = Math.round(target * 100) / 100;
+  const winChance = crashWinChanceContinuous(cashTarget);
 
-  // Debit the stake first so a player can never bet coins they don't have.
   let balance: number;
   try {
     balance = await adjustBalance(user.id, -bet);
@@ -50,15 +61,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "coin_api_error" }, { status: 502 });
   }
 
-  const win = rollWin(crashWinChance(target));
-  // The rocket crashes at or above the target on a win, below it on a loss.
+  const win = secureUnitInterval() < winChance;
+  // Win: rocket flies to at least the target. Loss: it busts before it.
   const crashPoint = win
-    ? Math.round((target + secureUnitInterval() * 2) * 100) / 100
-    : Math.round((1 + secureUnitInterval() * (target - 1)) * 100) / 100;
+    ? Math.round((cashTarget + secureUnitInterval() * cashTarget) * 100) / 100
+    : Math.round(
+        (CRASH_MIN_TARGET +
+          secureUnitInterval() * (cashTarget - CRASH_MIN_TARGET)) *
+          100
+      ) / 100;
 
   let payout = 0;
   if (win) {
-    payout = bet * target;
+    payout = payoutCoins(bet, cashTarget);
     try {
       balance = await adjustBalance(user.id, payout);
     } catch {
@@ -68,8 +83,9 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     result: win ? "win" : "lose",
-    target,
+    target: cashTarget,
     crashPoint,
+    winChance,
     bet,
     payout,
     profit: win ? payout - bet : -bet,
