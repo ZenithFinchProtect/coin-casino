@@ -32,6 +32,13 @@ function binColor(m: number): string {
   return "#00e701";
 }
 
+/** Compact multiplier label so it always fits inside a narrow bin. */
+function fmtMult(m: number): string {
+  if (m >= 100) return Math.round(m).toString();
+  if (m >= 10) return Math.round(m).toString();
+  return parseFloat(m.toFixed(1)).toString();
+}
+
 interface ActiveBall {
   id: number;
   x: number;
@@ -300,6 +307,13 @@ function PlinkoGame() {
             <stop offset="45%" stopColor="#ffd34d" />
             <stop offset="100%" stopColor="#f5a300" />
           </radialGradient>
+          <filter id="ballGlow" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="0.7" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
 
         {/* bins */}
@@ -307,6 +321,12 @@ function PlinkoGame() {
           const w = geo.gapX * 0.86;
           const x = binX(i) - w / 2;
           const hit = (binCounts[i] ?? 0) > 0;
+          const label = fmtMult(m);
+          // Shrink the label so the number + "×" always fit within the bin.
+          // The "×" renders at 0.7em, so it adds ~0.7 of a glyph in width.
+          const glyphs = label.length + 0.8;
+          const fitFont = (w * 0.92) / (glyphs * 0.6);
+          const fontSize = Math.min(geo.gapX * 0.46, fitFont, 3.4);
           return (
             <g key={i}>
               <rect
@@ -326,13 +346,15 @@ function PlinkoGame() {
               />
               <text
                 x={binX(i)}
-                y={geo.boardH + geo.binH * 0.62}
+                y={geo.boardH + geo.binH * 0.5}
                 textAnchor="middle"
-                fontSize={Math.min(geo.gapX * 0.42, 3.4)}
+                dominantBaseline="central"
+                fontSize={fontSize}
                 fontWeight="700"
                 fill="#07131c"
               >
-                {m}×
+                {label}
+                <tspan fontSize={fontSize * 0.7}>×</tspan>
               </text>
             </g>
           );
@@ -363,6 +385,7 @@ function PlinkoGame() {
             fill="url(#ballGrad)"
             stroke="#fff3c4"
             strokeWidth={geo.ballR * 0.12}
+            filter="url(#ballGlow)"
           />
         ))}
       </svg>

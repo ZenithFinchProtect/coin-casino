@@ -30,6 +30,12 @@ function CrashGame() {
   const [targetText, setTargetText] = useState(CRASH_DEFAULT_TARGET.toFixed(2));
   const [running, setRunning] = useState(false);
   const [multi, setMulti] = useState(1);
+  const [graph, setGraph] = useState<{
+    d: string;
+    area: string;
+    tipX: number;
+    tipY: number;
+  } | null>(null);
   const [result, setResult] = useState<CrashResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -45,11 +51,35 @@ function CrashGame() {
 
   function animateTo(end: number, data: CrashResult) {
     const start = performance.now();
-    const duration = 400 + Math.min(end, 10) * 250;
+    const duration = 1200 + Math.min(end, 12) * 320;
+    // Graph geometry in SVG user units (viewBox 0 0 100 100).
+    const x0 = 8;
+    const W = 86;
+    const yBase = 90;
+    const H = 80;
+    const span = Math.max(0.0001, end - 1);
+    const yOf = (v: number) => yBase - ((v - 1) / span) * H;
+
     const step = (now: number) => {
       const t = Math.min(1, (now - start) / duration);
-      const value = 1 + (end - 1) * t;
+      // Exponential climb so the curve bends upward like a real crash graph.
+      const value = Math.pow(end, t);
       setMulti(value);
+
+      const N = 48;
+      let d = "";
+      for (let i = 0; i <= N; i++) {
+        const s = (t * i) / N;
+        const v = Math.pow(end, s);
+        const x = x0 + s * W;
+        const y = yOf(v);
+        d += `${i === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)} `;
+      }
+      const tipX = x0 + t * W;
+      const tipY = yOf(value);
+      const area = `${d}L${tipX.toFixed(2)} ${yBase} L${x0} ${yBase} Z`;
+      setGraph({ d: d.trim(), area, tipX, tipY });
+
       if (t < 1) {
         rafRef.current = requestAnimationFrame(step);
       } else {
@@ -69,6 +99,7 @@ function CrashGame() {
     setResult(null);
     setRunning(true);
     setMulti(1);
+    setGraph(null);
     try {
       const res = await fetch("/api/games/crash", {
         method: "POST",
@@ -132,17 +163,82 @@ function CrashGame() {
     </>
   );
 
+  const stroke = busted ? "#ff3b3b" : won ? "#00e701" : "#ffd34d";
+
   const board = (
-    <div className="flex flex-1 flex-col items-center justify-center">
-      <div
-        className={cn(
-          "text-7xl font-bold tabular-nums transition-colors",
-          busted ? "text-red-500" : won ? "text-[#00e701]" : "text-white"
-        )}
-      >
-        {multi.toFixed(2)}×
+    <div className="flex flex-1 flex-col items-center justify-center gap-3">
+      <div className="relative w-full max-w-[460px]">
+        <svg
+          viewBox="0 0 100 100"
+          className="h-full max-h-[340px] w-full"
+          preserveAspectRatio="none"
+        >
+          <defs>
+            <linearGradient id="crashArea" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={stroke} stopOpacity="0.35" />
+              <stop offset="100%" stopColor={stroke} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+
+          {/* horizontal grid lines */}
+          {[18, 36, 54, 72, 90].map((y) => (
+            <line
+              key={y}
+              x1={8}
+              x2={94}
+              y1={y}
+              y2={y}
+              stroke="#243447"
+              strokeWidth={0.4}
+            />
+          ))}
+          {/* baseline axis */}
+          <line x1={8} x2={94} y1={90} y2={90} stroke="#33485e" strokeWidth={0.6} />
+
+          {graph && (
+            <>
+              <path d={graph.area} fill="url(#crashArea)" />
+              <path
+                d={graph.d}
+                fill="none"
+                stroke={stroke}
+                strokeWidth={1.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <circle
+                cx={graph.tipX}
+                cy={graph.tipY}
+                r={busted ? 2.6 : 2}
+                fill={stroke}
+              >
+                {running && (
+                  <animate
+                    attributeName="r"
+                    values="1.6;2.4;1.6"
+                    dur="0.7s"
+                    repeatCount="indefinite"
+                  />
+                )}
+              </circle>
+            </>
+          )}
+        </svg>
+
+        {/* multiplier read-out overlaid on the graph */}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <span
+            className={cn(
+              "text-6xl font-bold tabular-nums transition-colors drop-shadow",
+              busted ? "text-red-500" : won ? "text-[#00e701]" : "text-white"
+            )}
+          >
+            {multi.toFixed(2)}×
+          </span>
+        </div>
       </div>
-      <div className="mt-6 h-6 text-center">
+
+      <div className="h-6 text-center">
         {won && (
           <p className="text-base font-semibold text-[#00e701]">
             Cashed out at {result.target.toFixed(2)}× — won +{result.profit} coins!
