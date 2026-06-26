@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { LoginGate } from "@/components/login-gate";
 import { useUser } from "@/components/user-context";
+import { PlinkoSound } from "@/lib/plinko-sound";
 import { StakeShell, StakeBetField } from "@/components/stake-shell";
 import {
   MAX_BET,
@@ -78,7 +79,27 @@ function PlinkoGame() {
   const [binCounts, setBinCounts] = useState<number[]>([]);
   const [result, setResult] = useState<PlinkoResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<number[]>([]);
+  const [poppedBins, setPoppedBins] = useState<Set<number>>(new Set());
+  const [muted, setMuted] = useState(false);
   const rafRef = useRef<number | null>(null);
+  const soundRef = useRef<PlinkoSound | null>(null);
+  const tickedRef = useRef<Set<string>>(new Set());
+  const landedRef = useRef<Set<number>>(new Set());
+
+  if (soundRef.current === null && typeof window !== "undefined") {
+    soundRef.current = new PlinkoSound();
+  }
+
+  useEffect(() => {
+    const saved = localStorage.getItem("plinko-muted") === "1";
+    setMuted(saved);
+  }, []);
+
+  useEffect(() => {
+    soundRef.current?.setMuted(muted);
+    localStorage.setItem("plinko-muted", muted ? "1" : "0");
+  }, [muted]);
 
   const multipliers = plinkoMultipliers(rows, risk);
   const canPlay = !dropping && coins !== null && coins >= bet;
@@ -153,6 +174,23 @@ function PlinkoGame() {
         }
         if (t >= totalDur) {
           done++;
+          if (!landedRef.current.has(b.id)) {
+            landedRef.current.add(b.id);
+            const m = data.multipliers[b.bin] ?? multipliers[b.bin];
+            soundRef.current?.land(m);
+            setHistory((h) => [m, ...h].slice(0, 14));
+            const bin = b.bin;
+            setPoppedBins((s) => new Set(s).add(bin));
+            window.setTimeout(
+              () =>
+                setPoppedBins((s) => {
+                  const n = new Set(s);
+                  n.delete(bin);
+                  return n;
+                }),
+              200
+            );
+          }
           render.push({ id: b.id, x: binX(b.bin) + b.jitter, y: restY });
           continue;
         }
@@ -170,6 +208,11 @@ function PlinkoGame() {
           render.push({ id: b.id, x, y });
           if (seg >= 0 && seg < rows && p > 0.45) {
             lit.add(`${seg}-${b.kAt[seg]}`);
+            const tk = `${b.id}-${seg}`;
+            if (!tickedRef.current.has(tk)) {
+              tickedRef.current.add(tk);
+              soundRef.current?.peg();
+            }
           }
         } else {
           // settle into the bin with a damped bounce
@@ -206,12 +249,15 @@ function PlinkoGame() {
 
   async function play() {
     if (!canPlay) return;
+    soundRef.current?.resume();
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     setError(null);
     setResult(null);
     setActiveBalls([]);
     setLitPegs(new Set());
     setBinCounts(new Array<number>(rows + 1).fill(0));
+    tickedRef.current = new Set();
+    landedRef.current = new Set();
     setDropping(true);
     try {
       const res = await fetch("/api/games/plinko", {
@@ -295,10 +341,19 @@ function PlinkoGame() {
   );
 
   const board = (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3">
+    <div className="relative flex flex-1 flex-col items-center justify-center gap-3">
+      <button
+        type="button"
+        aria-label={muted ? "Unmute" : "Mute"}
+        onClick={() => setMuted((m) => !m)}
+        className="absolute right-1 top-1 z-10 rounded-md border border-[#2f4553] bg-[#0f212e]/80 px-2 py-1 text-sm text-[#b1bad3] hover:text-white"
+      >
+        {muted ? "🔇" : "🔊"}
+      </button>
+      <div className="flex w-full flex-1 items-stretch justify-center gap-2">
       <svg
         viewBox={`0 0 100 ${geo.height}`}
-        className="h-full max-h-[460px] w-full"
+        className="h-full max-h-[460px] w-full flex-1"
         preserveAspectRatio="xMidYMid meet"
       >
         <defs>
@@ -339,7 +394,11 @@ function PlinkoGame() {
                 opacity={hit ? 1 : 0.92}
                 style={{
                   transition: "transform 120ms",
-                  transform: hit ? "translateY(2px)" : "none",
+                  transform: poppedBins.has(i)
+                    ? "translateY(6px) scaleY(0.86)"
+                    : hit
+                      ? "translateY(2px)"
+                      : "none",
                   transformBox: "fill-box",
                   transformOrigin: "center",
                 }}
@@ -389,6 +448,25 @@ function PlinkoGame() {
           />
         ))}
       </svg>
+
+        {/* recent results — Stake-style multiplier history */}
+        <div className="flex w-14 flex-col gap-1 overflow-hidden py-1">
+          {history.length === 0 && (
+            <span className="text-center text-[10px] text-[#5b7388]">
+              recent
+            </span>
+          )}
+          {history.map((m, i) => (
+            <div
+              key={i}
+              className="rounded-md py-1 text-center text-xs font-bold text-[#07131c]"
+              style={{ background: binColor(m), opacity: 1 - i * 0.05 }}
+            >
+              {fmtMult(m)}×
+            </div>
+          ))}
+        </div>
+      </div>
 
       <div className="h-6 text-center">
         {result && (
