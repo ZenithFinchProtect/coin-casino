@@ -2,7 +2,7 @@
 // an edge while staying in a fairer 20-38% range.
 
 /** Default win probability when a game does not specify its own. */
-export const WIN_CHANCE = 0.38;
+export const WIN_CHANCE = 0.34;
 
 /** Betting limits, in coins. */
 export const MIN_BET = 1;
@@ -44,7 +44,7 @@ export function payoutCoins(bet: number, multiplier: number): number {
 /** Total return on a winning flip (2x = stake back + equal profit). */
 export const COINFLIP_MULTIPLIER = 2;
 /** Win probability for a coin flip. */
-export const COINFLIP_WIN_CHANCE = 0.38;
+export const COINFLIP_WIN_CHANCE = 0.34;
 
 // --- Dice (experimental / staging) ---
 /** Faces on the die. */
@@ -52,7 +52,7 @@ export const DICE_SIDES = 6;
 /** Total return on a winning dice roll (2x = stake back + equal profit). */
 export const DICE_MULTIPLIER = 2;
 /** Win probability for a dice roll. */
-export const DICE_WIN_CHANCE = 0.38;
+export const DICE_WIN_CHANCE = 0.34;
 
 // --- Dice (Stake-style slider) -------------------------------------------
 // Player rolls a 0.00-100.00 result and wins if it lands above their target.
@@ -61,8 +61,8 @@ export const DICE_WIN_CHANCE = 0.38;
 export const DICE_MIN_TARGET = 2;
 /** Maximum roll-over target (keeps win chance above ~2%). */
 export const DICE_MAX_TARGET = 98;
-/** Default roll-over target → 50% win chance. */
-export const DICE_DEFAULT_TARGET = 50;
+/** Default roll-over target → 34% win chance. */
+export const DICE_DEFAULT_TARGET = 66;
 
 /** Win chance for "roll over `target`" on a 0-100 scale. */
 export function diceWinChance(target: number): number {
@@ -80,8 +80,8 @@ export const MINES_COUNT = 5;
 export const MINES_TARGET = 3;
 /** Total return on a completed mines round (3x = stake back + 2x profit). */
 export const MINES_MULTIPLIER = 3;
-/** Win probability for a completed mines round (lower since it pays 3x). */
-export const MINES_WIN_CHANCE = 0.25;
+/** Win probability for a completed mines round. */
+export const MINES_WIN_CHANCE = 0.34;
 
 // --- High / Low (experimental / staging) ---
 /** Card ranks: 1 (Ace) .. 13 (King). */
@@ -89,13 +89,13 @@ export const HILO_RANKS = 13;
 /** Total return on a winning guess (2x = stake back + equal profit). */
 export const HILO_MULTIPLIER = 2;
 /** Win probability for a high/low guess. */
-export const HILO_WIN_CHANCE = 0.38;
+export const HILO_WIN_CHANCE = 0.34;
 
 // --- Blackjack (experimental / staging) ---
 /** Total return on a winning hand (2x = stake back + equal profit). */
 export const BLACKJACK_MULTIPLIER = 2;
 /** Win probability for a resolved blackjack hand. */
-export const BLACKJACK_WIN_CHANCE = 0.38;
+export const BLACKJACK_WIN_CHANCE = 0.34;
 
 // --- Mission Uncrossable (experimental / staging) ---
 /** Lanes the chicken must cross to complete a run. */
@@ -110,9 +110,9 @@ export const MISSION_WIN_CHANCE = 0.25;
 export const CRASH_TARGETS = [2, 3] as const;
 /**
  * Numerator for the win chance so the house edge stays constant across targets:
- * winChance = CRASH_HOUSE_FACTOR / target (0.76/2 = 0.38, 0.76/3 ≈ 0.25).
+ * winChance = CRASH_HOUSE_FACTOR / target (0.68/2 = 0.34, 0.68/3 ≈ 0.23).
  */
-export const CRASH_HOUSE_FACTOR = 0.76;
+export const CRASH_HOUSE_FACTOR = 0.68;
 /** Win probability for cashing out at the given target multiplier. */
 export function crashWinChance(target: number): number {
   return CRASH_HOUSE_FACTOR / target;
@@ -123,7 +123,7 @@ export function crashWinChance(target: number): number {
 // Win chance = HOUSE_RTP / target, so EV is HOUSE_RTP at every target.
 export const CRASH_MIN_TARGET = 1.01;
 export const CRASH_MAX_TARGET = 100;
-export const CRASH_DEFAULT_TARGET = 2;
+export const CRASH_DEFAULT_TARGET = 2.65;
 /** Win probability for auto-cashing at `target` (Stake-style edge). */
 export function crashWinChanceContinuous(target: number): number {
   return Math.min(1, HOUSE_RTP / target);
@@ -148,8 +148,8 @@ export function hiloLowerChance(rank: number): number {
 // the multiplier grows the further they commit. EV stays at HOUSE_RTP.
 export const MISSION_MAX_LANES = 8;
 export const MISSION_DEFAULT_LANES = 3;
-/** Per-lane survival probability (tuned for Stake-like multiplier growth). */
-export const MISSION_SURVIVE = 0.74;
+/** Per-lane survival probability (tuned so default 3 lanes ≈ 34% win). */
+export const MISSION_SURVIVE = 0.698;
 /** Win chance for safely crossing `lanes` lanes. */
 export function missionWinChance(lanes: number): number {
   return Math.pow(MISSION_SURVIVE, lanes);
