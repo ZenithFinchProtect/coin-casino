@@ -18,7 +18,8 @@ import { cn } from "@/lib/utils";
 
 interface PlinkoResult {
   result: "win" | "lose";
-  bins: number[];
+  bin: number;
+  multiplier: number;
   multipliers: number[];
   bet: number;
   payout: number;
@@ -283,9 +284,7 @@ function PlinkoGame() {
         setDropping(false);
         return;
       }
-      const plans = (data.bins as number[]).map((bin, i) =>
-        planBall(i, bin, i * STAGGER)
-      );
+      const plans = [planBall(0, data.bin as number, 0)];
       runAnimation(plans, data);
     } catch {
       setError("Network error. Try again.");
@@ -302,10 +301,6 @@ function PlinkoGame() {
         max={MAX_BET}
         disabled={dropping}
       />
-      <p className="-mt-2 mb-4 text-xs text-[#7a91a8]">
-        Drops <span className="font-semibold text-[#b1bad3]">{bet}</span>{" "}
-        {bet === 1 ? "ball" : "balls"} — one per coin.
-      </p>
       <div className="mb-4">
         <span className="stake-label">Risk</span>
         <div className="grid grid-cols-3 gap-1.5">
@@ -483,7 +478,7 @@ function PlinkoGame() {
               result.result === "win" ? "text-[#00e701]" : "text-red-400"
             )}
           >
-            {result.bet} {result.bet === 1 ? "ball" : "balls"} →{" "}
+            {result.multiplier}× →{" "}
             {result.profit >= 0
               ? `won +${result.profit} coins!`
               : `lost ${Math.abs(result.profit)} coins.`}
@@ -496,7 +491,7 @@ function PlinkoGame() {
   return (
     <StakeShell
       title="Plinko"
-      subtitle="One ball per coin. Drop them through the pegs — edge bins pay big, the middle pays small."
+      subtitle="Drop the ball through the pegs — edge bins pay big, the middle pays small."
       panel={panel}
       board={board}
     />
