@@ -1,4 +1,4 @@
-import { Coins, Bomb, Dices } from "lucide-react";
+import { Coins, Bomb, Dices, ArrowUpDown, Spade, Bird, Rocket } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /**
@@ -36,6 +36,34 @@ export const GAMES: GameDef[] = [
     name: "Dice",
     description: "Predict high or low on a six-sided roll to double your stake.",
     icon: Dices,
+    stage: "test",
+  },
+  {
+    href: "/highlow",
+    name: "High / Low",
+    description: "Guess whether the next card is higher or lower to double up.",
+    icon: ArrowUpDown,
+    stage: "test",
+  },
+  {
+    href: "/blackjack",
+    name: "Blackjack",
+    description: "Beat the dealer's hand without going over 21 to double up.",
+    icon: Spade,
+    stage: "test",
+  },
+  {
+    href: "/mission",
+    name: "Mission Uncrossable",
+    description: "Guide the chicken across five lanes of traffic to triple your stake.",
+    icon: Bird,
+    stage: "test",
+  },
+  {
+    href: "/crash",
+    name: "Crash",
+    description: "Cash out at your target multiplier before the rocket crashes.",
+    icon: Rocket,
     stage: "test",
   },
 ];
