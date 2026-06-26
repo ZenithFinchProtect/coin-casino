@@ -1,25 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Coins, Bomb, ChevronRight, ShieldAlert } from "lucide-react";
+import { Coins, ChevronRight, ShieldAlert } from "lucide-react";
 import { ParticlesBackground } from "@/components/particles-background";
 import { useUser } from "@/components/user-context";
 import { MAX_BET } from "@/lib/games";
+import { liveGames } from "@/lib/catalog";
 
-const games = [
-  {
-    href: "/coinflip",
-    name: "Coin Flip",
-    description: "Call heads or tails. Land it and double your stake.",
-    icon: Coins,
-  },
-  {
-    href: "/mines",
-    name: "Mines",
-    description: "Reveal three safe tiles in a row to triple your stake.",
-    icon: Bomb,
-  },
-];
+const games = liveGames;
 
 export default function HomePage() {
   const { user, loading } = useUser();
@@ -67,7 +55,7 @@ export default function HomePage() {
                 </a>
               ) : (
                 <Link
-                  href="/coinflip"
+                  href={games[0]?.href ?? "/"}
                   className="group flex items-center gap-2 h-12 rounded-xl bg-primary px-6 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/25 hover:-translate-y-0.5 transition-all"
                 >
                   Start Playing
