@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Coins, Bomb, ChevronRight, ShieldAlert, Percent } from "lucide-react";
+import { Coins, Bomb, ChevronRight, ShieldAlert } from "lucide-react";
 import { ParticlesBackground } from "@/components/particles-background";
 import { useUser } from "@/components/user-context";
-import { MAX_BET, WIN_CHANCE } from "@/lib/games";
+import { MAX_BET } from "@/lib/games";
 
 const games = [
   {
@@ -23,7 +23,6 @@ const games = [
 
 export default function HomePage() {
   const { user, loading } = useUser();
-  const winPct = Math.round(WIN_CHANCE * 100);
 
   return (
     <div className="relative">
@@ -109,14 +108,7 @@ export default function HomePage() {
       {/* House rules */}
       <section className="relative">
         <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 pb-20">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            <div className="glass-card-static p-6">
-              <Percent className="h-5 w-5 text-primary mb-3" />
-              <h3 className="font-semibold mb-1">{winPct}% win chance</h3>
-              <p className="text-xs text-muted-foreground">
-                Every round is a {winPct}% shot. The house keeps the edge.
-              </p>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
             <div className="glass-card-static p-6">
               <Coins className="h-5 w-5 text-yellow-400 mb-3" />
               <h3 className="font-semibold mb-1">Max bet {MAX_BET} coins</h3>

@@ -74,7 +74,7 @@ function CoinFlipGame() {
           Coin Flip
         </h1>
         <p className="text-center text-sm text-muted-foreground mb-8">
-          Pick a side. Win pays 2× your bet — but the odds are stacked at 20%.
+          Pick a side. Win pays 2× your bet.
         </p>
 
         <div className="glass-card-static p-8 flex flex-col items-center">
