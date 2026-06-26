@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Coins, Dices, LogOut, Spade } from "lucide-react";
 import { useUser } from "@/components/user-context";
+import { liveGames } from "@/lib/catalog";
 
 export function Header() {
   const { user, coins, loading } = useUser();
@@ -23,18 +24,15 @@ export function Header() {
           </Link>
 
           <nav className="hidden md:flex items-center gap-1">
-            <Link
-              href="/coinflip"
-              className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-accent"
-            >
-              Coin Flip
-            </Link>
-            <Link
-              href="/mines"
-              className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-accent"
-            >
-              Mines
-            </Link>
+            {liveGames.map((game) => (
+              <Link
+                key={game.href}
+                href={game.href}
+                className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-accent"
+              >
+                {game.name}
+              </Link>
+            ))}
           </nav>
         </div>
 

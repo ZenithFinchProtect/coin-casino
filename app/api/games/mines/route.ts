@@ -4,6 +4,7 @@ import { adjustBalance, CoinApiError } from "@/lib/coins";
 import {
   MINES_MULTIPLIER,
   MINES_TARGET,
+  MINES_WIN_CHANCE,
   isValidBet,
   rollWin,
   secureInt,
@@ -13,7 +14,7 @@ export const runtime = "edge";
 
 /**
  * Resolves a full mines round in one authoritative call. The win/lose outcome
- * is decided server-side (20% win chance); the client merely animates the
+ * is decided server-side (see MINES_WIN_CHANCE); the client merely animates the
  * tile-by-tile reveal. On a loss, `bustStep` (1-based) marks which of the
  * player's picks detonates, so the reveal still builds tension.
  */
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "coin_api_error" }, { status: 502 });
   }
 
-  const win = rollWin();
+  const win = rollWin(MINES_WIN_CHANCE);
   let payout = 0;
   let bustStep: number | null = null;
 

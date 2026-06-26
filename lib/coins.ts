@@ -26,7 +26,7 @@ export class CoinApiError extends Error {
 export async function getBalance(userId: string): Promise<number> {
   if (!base()) throw new CoinApiError("coin api not configured", 503);
   const url = `${base()}/api/coins/balance?user_id=${encodeURIComponent(userId)}`;
-  const res = await fetch(url, { headers: headers(), cache: "no-store" });
+  const res = await fetch(url, { headers: headers() });
   if (!res.ok) {
     throw new CoinApiError(`balance failed: ${res.status}`, res.status);
   }
@@ -46,7 +46,6 @@ export async function adjustBalance(
   const res = await fetch(`${base()}/api/coins/adjust`, {
     method: "POST",
     headers: headers(),
-    cache: "no-store",
     body: JSON.stringify({ user_id: userId, delta }),
   });
   const data = (await res.json().catch(() => ({}))) as {
