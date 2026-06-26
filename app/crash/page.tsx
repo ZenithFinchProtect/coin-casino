@@ -27,12 +27,17 @@ interface CrashResult {
 function CrashGame() {
   const { coins, setCoins, refresh } = useUser();
   const [bet, setBet] = useState(MIN_BET);
-  const [target, setTarget] = useState(CRASH_DEFAULT_TARGET);
+  const [targetText, setTargetText] = useState(CRASH_DEFAULT_TARGET.toFixed(2));
   const [running, setRunning] = useState(false);
   const [multi, setMulti] = useState(1);
   const [result, setResult] = useState<CrashResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const rafRef = useRef<number | null>(null);
+
+  const clampTarget = (n: number) =>
+    Math.max(CRASH_MIN_TARGET, Math.min(CRASH_MAX_TARGET, n));
+  const parsed = Number(targetText);
+  const target = clampTarget(Number.isFinite(parsed) && parsed > 0 ? parsed : CRASH_MIN_TARGET);
 
   const winChance = crashWinChanceContinuous(target);
   const potential = roundMultiplier(payoutMultiplier(winChance));
@@ -110,16 +115,10 @@ function CrashGame() {
           step={0.01}
           min={CRASH_MIN_TARGET}
           max={CRASH_MAX_TARGET}
-          value={target}
+          value={targetText}
           disabled={running}
-          onChange={(e) =>
-            setTarget(
-              Math.max(
-                CRASH_MIN_TARGET,
-                Math.min(CRASH_MAX_TARGET, Number(e.target.value) || CRASH_MIN_TARGET)
-              )
-            )
-          }
+          onChange={(e) => setTargetText(e.target.value)}
+          onBlur={() => setTargetText(clampTarget(parsed > 0 ? parsed : CRASH_MIN_TARGET).toFixed(2))}
         />
         <p className="mt-1.5 text-xs text-[#5b7283]">
           Pays {potential.toFixed(2)}× • win chance {(winChance * 100).toFixed(1)}%
