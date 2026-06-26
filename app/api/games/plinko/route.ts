@@ -14,11 +14,15 @@ import {
 export const runtime = "edge";
 
 /**
- * Stake-style Plinko. The ball falls through `rows` rows of pegs, bouncing
- * left/right with equal probability at each peg, and lands in one of rows + 1
- * bins (a Binomial(rows, 0.5) distribution). The multiplier tables are scaled
- * so the expected return is exactly HOUSE_RTP for every (rows, risk) combo. The
- * landing bin is decided server-side; the client animates the ball into it.
+ * Stake-style Plinko, one ball per coin wagered. Each of the `bet` coins drops
+ * its own ball through `rows` rows of pegs, bouncing left/right with equal
+ * probability at each peg, landing in one of rows + 1 bins (Binomial(rows,
+ * 0.5)). Each ball stakes exactly one coin, so the gross return is the sum of
+ * the landed multipliers; we floor that sum once to whole coins (flooring per
+ * ball would always zero out sub-1x bins and silently worsen the edge). The
+ * multiplier tables are scaled so the expected return is HOUSE_RTP for every
+ * (rows, risk) combo. The landing bins are decided server-side; the client
+ * animates the balls into them.
  */
 export async function POST(req: NextRequest) {
   const user = await getSessionUser();
@@ -61,9 +65,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "coin_api_error" }, { status: 502 });
   }
 
-  const bin = plinkoDrop(rows);
-  const multiplier = multipliers[bin];
-  const payout = payoutCoins(bet, multiplier);
+  // One ball per coin: drop `bet` balls, each staking a single coin.
+  const bins: number[] = [];
+  let multiplierSum = 0;
+  for (let i = 0; i < bet; i++) {
+    const b = plinkoDrop(rows);
+    bins.push(b);
+    multiplierSum += multipliers[b];
+  }
+  // Each ball stakes 1 coin, so the gross return is the multiplier sum; floor
+  // the total once to whole coins.
+  const payout = payoutCoins(1, multiplierSum);
 
   if (payout > 0) {
     try {
@@ -77,8 +89,7 @@ export async function POST(req: NextRequest) {
     result: payout >= bet ? "win" : "lose",
     risk,
     rows,
-    bin,
-    multiplier,
+    bins,
     multipliers,
     bet,
     payout,
