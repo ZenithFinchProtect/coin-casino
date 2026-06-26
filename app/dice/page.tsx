@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dices, Loader2 } from "lucide-react";
 import { ParticlesBackground } from "@/components/particles-background";
 import { LoginGate } from "@/components/login-gate";
 import { BetControls } from "@/components/bet-controls";
 import { useUser } from "@/components/user-context";
+import { DICE_SIDES, secureInt } from "@/lib/games";
 import { cn } from "@/lib/utils";
 
 type Pick = "high" | "low";
@@ -23,8 +24,16 @@ function DiceGame() {
   const [bet, setBet] = useState(1);
   const [pick, setPick] = useState<Pick>("high");
   const [rolling, setRolling] = useState(false);
+  const [face, setFace] = useState<number | null>(null);
   const [result, setResult] = useState<DiceResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const tumbleRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (tumbleRef.current) clearInterval(tumbleRef.current);
+    };
+  }, []);
 
   const canPlay = !rolling && coins !== null && coins >= bet;
 
@@ -33,6 +42,10 @@ function DiceGame() {
     setError(null);
     setResult(null);
     setRolling(true);
+    // Start tumbling the die through random faces while we wait for the server.
+    tumbleRef.current = setInterval(() => {
+      setFace(1 + secureInt(DICE_SIDES));
+    }, 80);
     try {
       const res = await fetch("/api/games/dice", {
         method: "POST",
@@ -41,6 +54,7 @@ function DiceGame() {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (tumbleRef.current) clearInterval(tumbleRef.current);
         if (res.status === 409) {
           setError("Not enough coins for that bet.");
           if (typeof data.coins === "number") setCoins(data.coins);
@@ -50,18 +64,20 @@ function DiceGame() {
         setRolling(false);
         return;
       }
+      // Keep the die tumbling for a beat so the roll feels earned.
       await new Promise((r) => setTimeout(r, 1100));
+      if (tumbleRef.current) clearInterval(tumbleRef.current);
+      setFace(data.roll);
       setResult(data);
       setCoins(data.balance);
       refresh();
     } catch {
+      if (tumbleRef.current) clearInterval(tumbleRef.current);
       setError("Network error. Try again.");
     } finally {
       setRolling(false);
     }
   }
-
-  const shownRoll = result ? result.roll : null;
 
   return (
     <div className="relative">
@@ -80,18 +96,16 @@ function DiceGame() {
         <div className="glass-card-static p-8 flex flex-col items-center">
           <div
             className={cn(
-              "flex h-32 w-32 items-center justify-center rounded-2xl border-4 text-5xl font-bold transition-transform duration-300",
-              rolling && "animate-spin",
-              "border-primary/60 bg-primary/10 text-primary"
+              "flex h-32 w-32 items-center justify-center rounded-2xl border-4 text-5xl font-bold transition-all duration-150",
+              rolling && "animate-bounce scale-105",
+              result
+                ? result.result === "win"
+                  ? "border-green-500/60 bg-green-500/10 text-green-400"
+                  : "border-red-500/60 bg-red-500/10 text-red-400"
+                : "border-primary/60 bg-primary/10 text-primary"
             )}
           >
-            {rolling ? (
-              <Dices className="h-12 w-12" />
-            ) : shownRoll !== null ? (
-              shownRoll
-            ) : (
-              <Dices className="h-12 w-12 opacity-60" />
-            )}
+            {face !== null ? face : <Dices className="h-12 w-12 opacity-60" />}
           </div>
 
           <div className="h-8 mt-5 text-center">

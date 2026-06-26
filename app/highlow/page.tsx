@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowUp, ArrowDown, Loader2, HelpCircle } from "lucide-react";
 import { ParticlesBackground } from "@/components/particles-background";
 import { LoginGate } from "@/components/login-gate";
 import { BetControls } from "@/components/bet-controls";
 import { useUser } from "@/components/user-context";
+import { HILO_RANKS, secureInt } from "@/lib/games";
 import { cn } from "@/lib/utils";
 
 type Pick = "higher" | "lower";
@@ -30,9 +31,29 @@ function rankLabel(rank: number): string {
   return RANK_LABELS[rank] ?? String(rank);
 }
 
-function Card({ rank, hidden }: { rank: number | null; hidden?: boolean }) {
+function Card({
+  rank,
+  hidden,
+  flipping,
+  tone,
+}: {
+  rank: number | null;
+  hidden?: boolean;
+  flipping?: boolean;
+  tone?: "win" | "lose";
+}) {
   return (
-    <div className="flex h-32 w-24 items-center justify-center rounded-2xl border-4 border-primary/60 bg-primary/10 text-4xl font-bold text-primary">
+    <div
+      className={cn(
+        "flex h-32 w-24 items-center justify-center rounded-2xl border-4 text-4xl font-bold transition-all duration-150",
+        flipping && "animate-bounce",
+        tone === "win"
+          ? "border-green-500/60 bg-green-500/10 text-green-400"
+          : tone === "lose"
+          ? "border-red-500/60 bg-red-500/10 text-red-400"
+          : "border-primary/60 bg-primary/10 text-primary"
+      )}
+    >
       {hidden || rank === null ? (
         <HelpCircle className="h-10 w-10 opacity-60" />
       ) : (
@@ -47,16 +68,32 @@ function HighLowGame() {
   const [bet, setBet] = useState(1);
   const [pick, setPick] = useState<Pick>("higher");
   const [playing, setPlaying] = useState(false);
+  const [flipping, setFlipping] = useState(false);
+  const [nextFace, setNextFace] = useState<number | null>(null);
   const [result, setResult] = useState<HiLoResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const flipRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (flipRef.current) clearInterval(flipRef.current);
+    };
+  }, []);
 
   const canPlay = !playing && coins !== null && coins >= bet;
+  const currentRank = result ? result.current : 7;
 
   async function play() {
     if (!canPlay) return;
     setError(null);
     setResult(null);
+    setNextFace(null);
     setPlaying(true);
+    setFlipping(true);
+    // Riffle through random ranks on the face-down card while we wait.
+    flipRef.current = setInterval(() => {
+      setNextFace(1 + secureInt(HILO_RANKS));
+    }, 80);
     try {
       const res = await fetch("/api/games/highlow", {
         method: "POST",
@@ -65,6 +102,8 @@ function HighLowGame() {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (flipRef.current) clearInterval(flipRef.current);
+        setFlipping(false);
         if (res.status === 409) {
           setError("Not enough coins for that bet.");
           if (typeof data.coins === "number") setCoins(data.coins);
@@ -74,11 +113,16 @@ function HighLowGame() {
         setPlaying(false);
         return;
       }
-      await new Promise((r) => setTimeout(r, 800));
+      await new Promise((r) => setTimeout(r, 900));
+      if (flipRef.current) clearInterval(flipRef.current);
+      setFlipping(false);
+      setNextFace(data.next);
       setResult(data);
       setCoins(data.balance);
       refresh();
     } catch {
+      if (flipRef.current) clearInterval(flipRef.current);
+      setFlipping(false);
       setError("Network error. Try again.");
     } finally {
       setPlaying(false);
@@ -103,11 +147,16 @@ function HighLowGame() {
           <div className="flex items-center gap-6">
             <div className="flex flex-col items-center gap-2">
               <span className="text-xs text-muted-foreground">Current</span>
-              <Card rank={result ? result.current : 7} />
+              <Card rank={currentRank} />
             </div>
             <div className="flex flex-col items-center gap-2">
               <span className="text-xs text-muted-foreground">Next</span>
-              <Card rank={result ? result.next : null} hidden={!result} />
+              <Card
+                rank={nextFace}
+                hidden={nextFace === null}
+                flipping={flipping}
+                tone={result ? result.result : undefined}
+              />
             </div>
           </div>
 
