@@ -98,8 +98,15 @@ function PlinkoGame() {
 
   useEffect(() => {
     soundRef.current?.setMuted(muted);
-    localStorage.setItem("plinko-muted", muted ? "1" : "0");
   }, [muted]);
+
+  const toggleMuted = () => {
+    setMuted((m) => {
+      const next = !m;
+      localStorage.setItem("plinko-muted", next ? "1" : "0");
+      return next;
+    });
+  };
 
   const multipliers = plinkoMultipliers(rows, risk);
   const canPlay = !dropping && coins !== null && coins >= bet;
@@ -345,7 +352,7 @@ function PlinkoGame() {
       <button
         type="button"
         aria-label={muted ? "Unmute" : "Mute"}
-        onClick={() => setMuted((m) => !m)}
+        onClick={toggleMuted}
         className="absolute right-1 top-1 z-10 rounded-md border border-[#2f4553] bg-[#0f212e]/80 px-2 py-1 text-sm text-[#b1bad3] hover:text-white"
       >
         {muted ? "🔇" : "🔊"}
