@@ -4,7 +4,7 @@ import { useState } from "react";
 import { LoginGate } from "@/components/login-gate";
 import { useUser } from "@/components/user-context";
 import { StakeShell, StakeBetField } from "@/components/stake-shell";
-import { MAX_BET, MIN_BET } from "@/lib/games";
+import { DEFAULT_BET, MAX_BET, MIN_BET, formatCoins } from "@/lib/games";
 import { cn } from "@/lib/utils";
 
 const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
@@ -62,7 +62,7 @@ function Card({ code, hidden }: { code?: number; hidden?: boolean }) {
 
 function BlackjackGame() {
   const { coins, setCoins, refresh } = useUser();
-  const [bet, setBet] = useState(MIN_BET);
+  const [bet, setBet] = useState(DEFAULT_BET);
   const [hand, setHand] = useState<Hand | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -199,7 +199,9 @@ function BlackjackGame() {
           >
             {OUTCOME_TEXT[hand.outcome] ?? hand.outcome}
             {typeof hand.profit === "number" &&
-              ` (${hand.profit >= 0 ? "+" : ""}${hand.profit} coins)`}
+              ` (${hand.profit >= 0 ? "+" : "-"}${formatCoins(
+                Math.abs(hand.profit)
+              )} coins)`}
           </p>
         )}
       </div>

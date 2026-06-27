@@ -7,6 +7,7 @@ import {
   MINES_WIN_CHANCE,
   isValidBet,
   rollWin,
+  roundCoins,
   secureInt,
 } from "@/lib/games";
 
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
   let bustStep: number | null = null;
 
   if (win) {
-    payout = bet * MINES_MULTIPLIER;
+    payout = roundCoins(bet * MINES_MULTIPLIER);
     try {
       balance = await adjustBalance(user.id, payout);
     } catch {
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
     multiplier: MINES_MULTIPLIER,
     bustStep,
     payout,
-    profit: win ? payout - bet : -bet,
+    profit: roundCoins(win ? payout - bet : -bet),
     balance,
   });
 }

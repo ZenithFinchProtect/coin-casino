@@ -8,9 +8,11 @@ import {
   CRASH_DEFAULT_TARGET,
   CRASH_MAX_TARGET,
   CRASH_MIN_TARGET,
+  DEFAULT_BET,
   MAX_BET,
   MIN_BET,
   crashWinChanceContinuous,
+  formatCoins,
   payoutMultiplier,
   roundMultiplier,
 } from "@/lib/games";
@@ -492,7 +494,7 @@ function CrashBoard({
 
 function CrashGame() {
   const { coins, setCoins, refresh } = useUser();
-  const [bet, setBet] = useState(MIN_BET);
+  const [bet, setBet] = useState(DEFAULT_BET);
   const [targetText, setTargetText] = useState(CRASH_DEFAULT_TARGET.toFixed(2));
   const [running, setRunning] = useState(false);
   const [multi, setMulti] = useState(1);
@@ -637,13 +639,13 @@ function CrashGame() {
       <div className="h-6 text-center">
         {won && result && (
           <p className="text-base font-semibold text-[#46f0a8]">
-            Cashed out at {result.target.toFixed(2)}× — won +{result.profit} coins!
+            Cashed out at {result.target.toFixed(2)}× — won +{formatCoins(result.profit)} coins!
           </p>
         )}
         {busted && result && (
           <p className="text-base font-semibold text-red-400">
             Crashed at {result.crashPoint.toFixed(2)}× — lost{" "}
-            {Math.abs(result.profit)} coins.
+            {formatCoins(Math.abs(result.profit))} coins.
           </p>
         )}
       </div>

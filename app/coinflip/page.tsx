@@ -6,6 +6,7 @@ import { ParticlesBackground } from "@/components/particles-background";
 import { LoginGate } from "@/components/login-gate";
 import { BetControls } from "@/components/bet-controls";
 import { useUser } from "@/components/user-context";
+import { formatCoins } from "@/lib/games";
 import { cn } from "@/lib/utils";
 
 type Side = "heads" | "tails";
@@ -99,9 +100,9 @@ function CoinFlipGame() {
                 )}
               >
                 {result.result === "win"
-                  ? `You won +${result.profit} coins!`
-                  : `Landed ${result.landed}. You lost ${Math.abs(
-                      result.profit
+                  ? `You won +${formatCoins(result.profit)} coins!`
+                  : `Landed ${result.landed}. You lost ${formatCoins(
+                      Math.abs(result.profit)
                     )} coins.`}
               </p>
             )}
@@ -147,7 +148,7 @@ function CoinFlipGame() {
                 <Loader2 className="h-4 w-4 animate-spin" /> Flipping…
               </>
             ) : (
-              <>Flip for {bet} {bet === 1 ? "coin" : "coins"}</>
+              <>Flip for {formatCoins(bet)} {bet === 1 ? "coin" : "coins"}</>
             )}
           </button>
 

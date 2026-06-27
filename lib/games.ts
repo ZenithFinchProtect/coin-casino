@@ -4,9 +4,42 @@
 /** Default win probability when a game does not specify its own. */
 export const WIN_CHANCE = 0.34;
 
-/** Betting limits, in coins. */
-export const MIN_BET = 1;
+/** Betting limits, in coins. Bets are tracked to the hundredth of a coin. */
+export const MIN_BET = 0.01;
 export const MAX_BET = 5;
+
+/** Smallest wager / payout increment (1 "cent" of a coin). */
+export const COIN_STEP = 0.01;
+
+/** Sensible default stake for the bet field (a whole coin when affordable). */
+export const DEFAULT_BET = 1;
+
+/** Round a coin amount to the nearest cent (kills float drift like 0.1+0.2). */
+export function roundCoins(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/** Floor a coin amount to whole cents (used for payouts — never overpays). */
+export function floorCoins(n: number): number {
+  return Math.floor(roundCoins(n * 100)) / 100;
+}
+
+/** Clamp a stake into [MIN_BET, MAX_BET] and snap it to the cent. */
+export function clampBet(n: number): number {
+  if (!Number.isFinite(n)) return MIN_BET;
+  return Math.min(MAX_BET, Math.max(MIN_BET, roundCoins(n)));
+}
+
+/**
+ * Human-friendly coin amount: whole numbers stay clean ("3"), fractions show
+ * up to two decimals ("0.5", "1.42") without trailing-zero noise.
+ */
+export function formatCoins(n: number): string {
+  return roundCoins(n).toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+}
 
 // --- Stake-style payout math ---------------------------------------------
 /**
@@ -35,9 +68,9 @@ export function roundMultiplier(m: number): number {
   return Math.round(m * 100) / 100;
 }
 
-/** Coins credited for a stake at a multiplier (floored to whole coins). */
+/** Coins credited for a stake at a multiplier (floored to whole cents). */
 export function payoutCoins(bet: number, multiplier: number): number {
-  return Math.floor(bet * multiplier);
+  return floorCoins(bet * multiplier);
 }
 
 // --- Coin Flip ---
@@ -242,9 +275,11 @@ export function plinkoDrop(rows: number): number {
 export function isValidBet(bet: unknown): bet is number {
   return (
     typeof bet === "number" &&
-    Number.isInteger(bet) &&
+    Number.isFinite(bet) &&
     bet >= MIN_BET &&
-    bet <= MAX_BET
+    bet <= MAX_BET &&
+    // Must land on a whole cent; reject sub-cent precision like 0.005.
+    Math.abs(bet * 100 - Math.round(bet * 100)) < 1e-6
   );
 }
 

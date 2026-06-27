@@ -2,7 +2,7 @@
 
 import { Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { MAX_BET, MIN_BET } from "@/lib/games";
+import { MAX_BET, MIN_BET, clampBet, formatCoins } from "@/lib/games";
 
 interface Props {
   bet: number;
@@ -11,8 +11,10 @@ interface Props {
 }
 
 export function BetControls({ bet, setBet, disabled }: Props) {
-  const options = [];
-  for (let i = MIN_BET; i <= MAX_BET; i++) options.push(i);
+  // Quick-pick presets, decimals included, clamped to the allowed range.
+  const presets = [0.5, 1, 2, 3, MAX_BET].filter(
+    (a, i, arr) => a >= MIN_BET && a <= MAX_BET && arr.indexOf(a) === i
+  );
 
   return (
     <div>
@@ -22,11 +24,21 @@ export function BetControls({ bet, setBet, disabled }: Props) {
         </span>
         <span className="flex items-center gap-1.5 text-sm font-semibold">
           <Coins className="h-4 w-4 text-yellow-400" />
-          {bet}
+          {formatCoins(bet)}
         </span>
       </div>
+      <input
+        type="number"
+        value={bet}
+        min={MIN_BET}
+        max={MAX_BET}
+        step={0.01}
+        disabled={disabled}
+        onChange={(e) => setBet(clampBet(Number(e.target.value)))}
+        className="mb-2 h-11 w-full rounded-lg border border-border bg-card/60 px-3 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+      />
       <div className="grid grid-cols-5 gap-2">
-        {options.map((amount) => (
+        {presets.map((amount) => (
           <button
             key={amount}
             type="button"
@@ -39,12 +51,12 @@ export function BetControls({ bet, setBet, disabled }: Props) {
                 : "border-border bg-card/60 hover:bg-accent"
             )}
           >
-            {amount}
+            {formatCoins(amount)}
           </button>
         ))}
       </div>
       <p className="mt-2 text-xs text-muted-foreground">
-        Max bet is {MAX_BET} coins per round.
+        Bet between {MIN_BET} and {MAX_BET} coins (decimals allowed).
       </p>
     </div>
   );

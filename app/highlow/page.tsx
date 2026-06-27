@@ -6,8 +6,10 @@ import { LoginGate } from "@/components/login-gate";
 import { useUser } from "@/components/user-context";
 import { StakeShell, StakeBetField } from "@/components/stake-shell";
 import {
+  DEFAULT_BET,
   MAX_BET,
   MIN_BET,
+  formatCoins,
   hiloHigherChance,
   hiloLowerChance,
   payoutMultiplier,
@@ -47,7 +49,7 @@ function Card({
 
 function HighLowGame() {
   const { coins, setCoins, refresh } = useUser();
-  const [bet, setBet] = useState(MIN_BET);
+  const [bet, setBet] = useState(DEFAULT_BET);
   const [current, setCurrent] = useState<number | null>(null);
   const [next, setNext] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -116,8 +118,10 @@ function HighLowGame() {
       refresh();
       setMsg(
         data.result === "win"
-          ? `${pick === "higher" ? "Higher" : "Lower"} hit — won +${data.profit} coins!`
-          : `Missed — lost ${Math.abs(data.profit)} coins.`
+          ? `${pick === "higher" ? "Higher" : "Lower"} hit — won +${formatCoins(
+              data.profit
+            )} coins!`
+          : `Missed — lost ${formatCoins(Math.abs(data.profit))} coins.`
       );
       // On a win the revealed card becomes the new base; on a loss redeal.
       setTimeout(() => {

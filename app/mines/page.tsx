@@ -12,6 +12,7 @@ import {
   MINES_MULTIPLIER,
   MINES_TARGET,
   MINES_TILES,
+  formatCoins,
   secureInt,
 } from "@/lib/games";
 
@@ -173,12 +174,12 @@ function MinesGame() {
           <div className="h-7 mt-4 text-center">
             {phase === "done" && outcome === "win" && round && (
               <p className="text-lg font-semibold text-green-400 animate-fade-in">
-                Cleared! You won +{round.profit} coins.
+                Cleared! You won +{formatCoins(round.profit)} coins.
               </p>
             )}
             {phase === "done" && outcome === "lose" && round && (
               <p className="text-lg font-semibold text-red-400 animate-fade-in">
-                Boom! You lost {Math.abs(round.profit)} coins.
+                Boom! You lost {formatCoins(Math.abs(round.profit))} coins.
               </p>
             )}
             {phase === "playing" && (
@@ -207,7 +208,7 @@ function MinesGame() {
               "Round in progress…"
             ) : (
               <>
-                Play for {bet} {bet === 1 ? "coin" : "coins"}
+                Play for {formatCoins(bet)} {bet === 1 ? "coin" : "coins"}
               </>
             )}
           </button>

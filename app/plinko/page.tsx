@@ -6,12 +6,14 @@ import { useUser } from "@/components/user-context";
 import { PlinkoSound } from "@/lib/plinko-sound";
 import { StakeShell, StakeBetField } from "@/components/stake-shell";
 import {
+  DEFAULT_BET,
   MAX_BET,
   MIN_BET,
   PLINKO_DEFAULT_ROWS,
   PLINKO_RISKS,
   PLINKO_ROW_OPTIONS,
   PlinkoRisk,
+  formatCoins,
   plinkoMultipliers,
 } from "@/lib/games";
 import { cn } from "@/lib/utils";
@@ -71,7 +73,7 @@ const STAGGER = 0.16; // seconds between successive balls
 
 function PlinkoGame() {
   const { coins, setCoins, refresh } = useUser();
-  const [bet, setBet] = useState(MIN_BET);
+  const [bet, setBet] = useState(DEFAULT_BET);
   const [risk, setRisk] = useState<PlinkoRisk>("medium");
   const [rows, setRows] = useState<number>(PLINKO_DEFAULT_ROWS);
   const [dropping, setDropping] = useState(false);
@@ -480,8 +482,8 @@ function PlinkoGame() {
           >
             {result.multiplier}× →{" "}
             {result.profit >= 0
-              ? `won +${result.profit} coins!`
-              : `lost ${Math.abs(result.profit)} coins.`}
+              ? `won +${formatCoins(result.profit)} coins!`
+              : `lost ${formatCoins(Math.abs(result.profit))} coins.`}
           </p>
         )}
       </div>

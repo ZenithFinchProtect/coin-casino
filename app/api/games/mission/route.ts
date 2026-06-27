@@ -8,6 +8,7 @@ import {
   missionMultiplier,
   missionWinChance,
   payoutCoins,
+  roundCoins,
   secureUnitInterval,
 } from "@/lib/games";
 
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
     multiplier,
     bet,
     payout,
-    profit: win ? payout - bet : -bet,
+    profit: roundCoins(win ? payout - bet : -bet),
     balance,
   });
 }

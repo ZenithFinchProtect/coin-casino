@@ -4,7 +4,7 @@
 // "rigging" the odds: single deck, dealer HITS soft 17, blackjack pays 3:2,
 // no insurance, no split.
 
-import { secureInt } from "@/lib/games";
+import { floorCoins, secureInt } from "@/lib/games";
 
 /** Blackjack pays 3:2 → 2.5x the stake returned (1.5x profit). */
 export const BLACKJACK_PAYS = 2.5;
@@ -114,7 +114,7 @@ export function payoutForOutcome(
 ): number {
   switch (outcome) {
     case "player_blackjack":
-      return Math.floor(bet * BLACKJACK_PAYS);
+      return floorCoins(bet * BLACKJACK_PAYS);
     case "dealer_bust":
     case "player_win":
       return stake * 2;

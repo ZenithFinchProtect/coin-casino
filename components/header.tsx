@@ -40,7 +40,14 @@ export function Header() {
           {!loading && user && (
             <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-card/60 px-3 py-1.5 text-sm font-semibold">
               <Coins className="h-4 w-4 text-yellow-400" />
-              <span>{coins ?? "—"}</span>
+              <span>
+                {coins === null || coins === undefined
+                  ? "—"
+                  : coins.toLocaleString(undefined, {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 2,
+                    })}
+              </span>
             </div>
           )}
 

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Coins, ChevronRight, ShieldAlert } from "lucide-react";
 import { ParticlesBackground } from "@/components/particles-background";
 import { useUser } from "@/components/user-context";
-import { MAX_BET } from "@/lib/games";
+import { MAX_BET, MIN_BET } from "@/lib/games";
 import { liveGames } from "@/lib/catalog";
 
 const games = liveGames;
@@ -101,7 +101,8 @@ export default function HomePage() {
               <Coins className="h-5 w-5 text-yellow-400 mb-3" />
               <h3 className="font-semibold mb-1">Max bet {MAX_BET} coins</h3>
               <p className="text-xs text-muted-foreground">
-                Wager between 1 and {MAX_BET} coins per round.
+                Wager from {MIN_BET} up to {MAX_BET} coins per round — decimals
+                welcome.
               </p>
             </div>
             <div className="glass-card-static p-6">
