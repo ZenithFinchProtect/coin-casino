@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/session";
 import { adjustBalance, CoinApiError } from "@/lib/coins";
-import { isValidBet } from "@/lib/games";
+import { isValidBet, roundCoins } from "@/lib/games";
 import {
   BlackjackState,
   freshDeck,
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
         outcome,
         bet,
         payout,
-        profit: payout - bet,
+        profit: roundCoins(payout - bet),
         balance: credited ?? balance,
       });
     }
@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
         outcome,
         bet: state.bet,
         payout,
-        profit: payout - stakeOf(state),
+        profit: roundCoins(payout - stakeOf(state)),
         balance,
       });
     }
@@ -179,7 +179,7 @@ export async function POST(req: NextRequest) {
       outcome,
       bet: state.bet,
       payout,
-      profit: payout - stakeOf(state),
+      profit: roundCoins(payout - stakeOf(state)),
       balance,
     });
   }
@@ -218,7 +218,7 @@ export async function POST(req: NextRequest) {
       outcome,
       bet: state.bet,
       payout,
-      profit: payout - stakeOf(state),
+      profit: roundCoins(payout - stakeOf(state)),
       balance: credited ?? balance,
     });
   }

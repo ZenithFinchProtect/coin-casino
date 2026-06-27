@@ -6,6 +6,7 @@ import {
   COINFLIP_WIN_CHANCE,
   isValidBet,
   rollWin,
+  roundCoins,
 } from "@/lib/games";
 
 export const runtime = "edge";
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
   let payout = 0;
 
   if (win) {
-    payout = bet * COINFLIP_MULTIPLIER;
+    payout = roundCoins(bet * COINFLIP_MULTIPLIER);
     try {
       balance = await adjustBalance(user.id, payout);
     } catch {
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
     landed,
     bet,
     payout,
-    profit: win ? payout - bet : -bet,
+    profit: roundCoins(win ? payout - bet : -bet),
     balance,
   });
 }

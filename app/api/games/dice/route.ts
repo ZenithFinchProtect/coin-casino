@@ -8,6 +8,7 @@ import {
   isValidBet,
   payoutCoins,
   payoutMultiplier,
+  roundCoins,
   roundMultiplier,
   rollWin,
   secureUnitInterval,
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest) {
     multiplier,
     bet,
     payout,
-    profit: win ? payout - bet : -bet,
+    profit: roundCoins(win ? payout - bet : -bet),
     balance,
   });
 }

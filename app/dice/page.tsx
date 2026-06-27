@@ -8,9 +8,11 @@ import {
   DICE_MAX_TARGET,
   DICE_MIN_TARGET,
   DICE_DEFAULT_TARGET,
+  DEFAULT_BET,
   MAX_BET,
   MIN_BET,
   diceWinChance,
+  formatCoins,
   payoutMultiplier,
   roundMultiplier,
 } from "@/lib/games";
@@ -27,7 +29,7 @@ interface DiceResult {
 
 function DiceGame() {
   const { coins, setCoins, refresh } = useUser();
-  const [bet, setBet] = useState(MIN_BET);
+  const [bet, setBet] = useState(DEFAULT_BET);
   const [target, setTarget] = useState(DICE_DEFAULT_TARGET);
   const [rolling, setRolling] = useState(false);
   const [display, setDisplay] = useState(50);
@@ -177,9 +179,11 @@ function DiceGame() {
             )}
           >
             {result.result === "win"
-              ? `Rolled ${result.roll.toFixed(2)} — won +${result.profit} coins!`
-              : `Rolled ${result.roll.toFixed(2)} — lost ${Math.abs(
+              ? `Rolled ${result.roll.toFixed(2)} — won +${formatCoins(
                   result.profit
+                )} coins!`
+              : `Rolled ${result.roll.toFixed(2)} — lost ${formatCoins(
+                  Math.abs(result.profit)
                 )} coins.`}
           </p>
         )}

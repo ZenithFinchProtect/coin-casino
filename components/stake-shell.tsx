@@ -32,7 +32,12 @@ export function StakeShell({ title, subtitle, panel, board }: Props) {
         </div>
         <span className="flex items-center gap-1.5 text-sm font-semibold text-white">
           <Coins className="h-4 w-4 text-yellow-400" />
-          {coins === null ? "—" : coins.toLocaleString()}
+          {coins === null
+            ? "—"
+            : coins.toLocaleString(undefined, {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2,
+              })}
         </span>
       </div>
 
@@ -60,7 +65,9 @@ export function StakeBetField({
   max,
   disabled,
 }: BetFieldProps) {
-  const clamp = (n: number) => Math.max(min, Math.min(max, Math.round(n)));
+  // Snap to whole cents so bets stay valid (matches isValidBet on the server).
+  const clamp = (n: number) =>
+    Math.max(min, Math.min(max, Math.round(n * 100) / 100));
   return (
     <div className="mb-4">
       <span className="stake-label">Bet Amount</span>
@@ -71,6 +78,7 @@ export function StakeBetField({
           value={bet}
           min={min}
           max={max}
+          step={0.01}
           disabled={disabled}
           onChange={(e) => setBet(clamp(Number(e.target.value) || min))}
         />
@@ -92,7 +100,7 @@ export function StakeBetField({
         </button>
       </div>
       <p className="mt-1.5 text-xs text-[#5b7283]">
-        Bet between {min} and {max} coins.
+        Bet between {min} and {max} coins (decimals allowed).
       </p>
     </div>
   );

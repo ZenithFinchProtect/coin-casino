@@ -7,6 +7,7 @@ import {
   isValidPlinkoRisk,
   isValidPlinkoRows,
   payoutCoins,
+  roundCoins,
   plinkoDrop,
   plinkoMultipliers,
 } from "@/lib/games";
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest) {
     multipliers,
     bet,
     payout,
-    profit: payout - bet,
+    profit: roundCoins(payout - bet),
     balance,
   });
 }

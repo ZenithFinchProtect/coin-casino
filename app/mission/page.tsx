@@ -5,10 +5,12 @@ import { LoginGate } from "@/components/login-gate";
 import { useUser } from "@/components/user-context";
 import { StakeShell, StakeBetField } from "@/components/stake-shell";
 import {
+  DEFAULT_BET,
   MAX_BET,
   MIN_BET,
   MISSION_DEFAULT_LANES,
   MISSION_MAX_LANES,
+  formatCoins,
   missionMultiplier,
   missionWinChance,
 } from "@/lib/games";
@@ -24,7 +26,7 @@ interface MissionResult {
 
 function MissionGame() {
   const { coins, setCoins, refresh } = useUser();
-  const [bet, setBet] = useState(MIN_BET);
+  const [bet, setBet] = useState(DEFAULT_BET);
   const [lanes, setLanes] = useState(MISSION_DEFAULT_LANES);
   const [running, setRunning] = useState(false);
   const [pos, setPos] = useState(0); // current lane reached (0 = start)
@@ -166,9 +168,11 @@ function MissionGame() {
             )}
           >
             {result.result === "win"
-              ? `Crossed all ${result.lanes} lanes — won +${result.profit} coins!`
-              : `Hit on lane ${result.bustLane} — lost ${Math.abs(
+              ? `Crossed all ${result.lanes} lanes — won +${formatCoins(
                   result.profit
+                )} coins!`
+              : `Hit on lane ${result.bustLane} — lost ${formatCoins(
+                  Math.abs(result.profit)
                 )} coins.`}
           </p>
         )}
