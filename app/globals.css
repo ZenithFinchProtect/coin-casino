@@ -375,3 +375,118 @@ code:not(pre code) {
   color: #fff;
   border-color: #557086;
 }
+
+/* ---- Crash: night-sky board (visual design only) ------------------------ */
+.crash-board {
+  position: relative;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 380px;
+  border-radius: 22px;
+  overflow: hidden;
+  isolation: isolate;
+  background: linear-gradient(200deg, #05060f 0%, #0a1230 45%, #0b0a22 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(120, 160, 255, 0.18),
+    inset 0 0 42px rgba(47, 123, 255, 0.06),
+    0 24px 60px rgba(3, 6, 20, 0.55);
+}
+
+/* animated atmosphere layers */
+.crash-board .crash-grad,
+.crash-board .crash-nebula,
+.crash-board .crash-rays,
+.crash-board .crash-vignette,
+.crash-board .crash-layer,
+.crash-board .crash-game {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.crash-grad {
+  z-index: 0;
+  background:
+    radial-gradient(120% 100% at 20% 10%, rgba(58, 26, 107, 0.55), transparent 55%),
+    radial-gradient(120% 120% at 85% 20%, rgba(47, 123, 255, 0.30), transparent 50%),
+    radial-gradient(140% 120% at 70% 95%, rgba(69, 230, 255, 0.16), transparent 55%),
+    radial-gradient(120% 120% at 10% 90%, rgba(154, 107, 255, 0.22), transparent 55%);
+  background-size: 200% 200%, 200% 200%, 200% 200%, 200% 200%;
+  animation: crashDrift 38s ease-in-out infinite alternate;
+}
+@keyframes crashDrift {
+  0% { background-position: 0% 0%, 100% 0%, 50% 100%, 0% 100%; }
+  50% { background-position: 40% 60%, 60% 40%, 30% 60%, 40% 70%; }
+  100% { background-position: 100% 100%, 0% 100%, 80% 0%, 100% 0%; }
+}
+
+.crash-nebula {
+  z-index: 1;
+  background:
+    radial-gradient(40% 30% at 30% 35%, rgba(154, 107, 255, 0.22), transparent 70%),
+    radial-gradient(35% 28% at 72% 60%, rgba(69, 230, 255, 0.16), transparent 70%),
+    radial-gradient(45% 35% at 50% 80%, rgba(47, 123, 255, 0.16), transparent 70%);
+  filter: blur(34px);
+  mix-blend-mode: screen;
+  opacity: 0.9;
+  animation: crashNebula 60s ease-in-out infinite alternate;
+}
+@keyframes crashNebula {
+  0% { transform: translate3d(-4%, -2%, 0) scale(1.05); }
+  100% { transform: translate3d(5%, 4%, 0) scale(1.18); }
+}
+
+.crash-layer { z-index: 2; }
+.crash-game { z-index: 3; }
+
+.crash-rays {
+  z-index: 4;
+  background:
+    conic-gradient(from 200deg at 50% -10%,
+      transparent 0deg,
+      rgba(77, 155, 255, 0.08) 20deg,
+      transparent 40deg,
+      rgba(154, 107, 255, 0.06) 70deg,
+      transparent 90deg);
+  mix-blend-mode: screen;
+  opacity: 0.6;
+  animation: crashRays 26s linear infinite;
+}
+@keyframes crashRays { to { transform: rotate(360deg); } }
+
+.crash-vignette {
+  z-index: 5;
+  background: radial-gradient(120% 100% at 50% 45%, transparent 55%, rgba(2, 3, 10, 0.55) 92%, rgba(2, 3, 10, 0.85) 100%);
+}
+
+.crash-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.crash-mult {
+  font-size: clamp(40px, 7vw, 84px);
+  font-weight: 900;
+  letter-spacing: -2px;
+  line-height: 1;
+  text-shadow: 0 0 40px rgba(69, 230, 255, 0.45), 0 0 14px rgba(255, 255, 255, 0.22);
+  transition: color 0.3s ease;
+}
+.crash-status {
+  font-size: 13px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #8ea2cc;
+}
+.crash-status-bad {
+  color: #ff5d73;
+  text-shadow: 0 0 24px rgba(255, 93, 115, 0.5);
+}
+
